@@ -13,6 +13,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import ImageViewing from "react-native-image-viewing";
+import { addCase, getCases } from "./lib/cases";
 
 type Status = "PENDING" | "REVIEWING" | "VERIFIED" | "REJECTED";
 type Severity = "LOW" | "MEDIUM" | "HIGH";
@@ -138,7 +139,37 @@ export default function App() {
   }, []);
 
   async function loadRecords() {
+    try {
+      const cloudCases = await getCases();
+
+      if (cloudCases.length > 0) {
+        const mapped = cloudCases.map((item: any) => ({
+          id: item.id || item.firebaseId || `SC-${Date.now()}`,
+          name: item.name || "未提供",
+          plate: item.plate || "",
+          type: item.type || "未分類",
+          area: item.area || "未知地區",
+          date: item.date || "未提供",
+          status: item.status || "PENDING",
+          evidence: item.evidence || "未提供",
+          note: item.note || "未填寫",
+          severity: item.severity || "MEDIUM",
+          riskScore: item.riskScore || 50,
+          aiSummary: item.aiSummary || "尚無 AI 分析",
+          profileImageUrl: item.profileImageUrl,
+          plateImageUrl: item.plateImageUrl,
+        })) as RecordItem[];
+
+        setRecords(mapped);
+        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(mapped));
+        return;
+      }
+    } catch (e) {
+      console.log("Firebase 讀取失敗，改用本機資料", e);
+    }
+
     const raw = await AsyncStorage.getItem(STORAGE_KEY);
+
     if (raw) {
       setRecords(JSON.parse(raw));
       return;
@@ -245,6 +276,12 @@ export default function App() {
       profileImageUrl: reportProfileImage || undefined,
       plateImageUrl: reportPlateImage || undefined,
     };
+
+    try {
+      await addCase(newRecord);
+    } catch (e) {
+      console.log("Firebase 寫入失敗，僅儲存在本機", e);
+    }
 
     const next = [newRecord, ...records];
     await saveRecords(next);
