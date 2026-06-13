@@ -14,6 +14,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import ImageViewing from "react-native-image-viewing";
 import { addCase, getCases } from "./lib/cases";
+import { uploadImageAsync } from "./lib/storage";
 
 type Status = "PENDING" | "REVIEWING" | "VERIFIED" | "REJECTED";
 type Severity = "LOW" | "MEDIUM" | "HIGH";
@@ -258,6 +259,22 @@ export default function App() {
       return;
     }
 
+    let profileImageUrl = "";
+    let plateImageUrl = "";
+
+    try {
+      if (reportProfileImage) {
+        profileImageUrl = await uploadImageAsync(reportProfileImage, "profileImages");
+      }
+
+      if (reportPlateImage) {
+        plateImageUrl = await uploadImageAsync(reportPlateImage, "plateImages");
+      }
+    } catch (e) {
+      console.log("照片上傳失敗", e);
+      Alert.alert("照片上傳失敗", "照片未成功上傳，但文字資料仍會建立。");
+    }
+
     const score = calcRisk(reportType, reportNote, severity);
 
     const newRecord: RecordItem = {
@@ -273,8 +290,8 @@ export default function App() {
       severity,
       riskScore: score,
       aiSummary: generateAiRiskSummary(reportType, reportNote, severity),
-      profileImageUrl: reportProfileImage || undefined,
-      plateImageUrl: reportPlateImage || undefined,
+      profileImageUrl: profileImageUrl || "",
+      plateImageUrl: plateImageUrl || "",
     };
 
     try {
