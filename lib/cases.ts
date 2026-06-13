@@ -9,9 +9,15 @@ import {
 
 import { db } from "./firebase";
 
+function removeUndefined(data: any) {
+  return Object.fromEntries(
+    Object.entries(data).filter(([, value]) => value !== undefined)
+  );
+}
+
 export async function addCase(data: any) {
   return await addDoc(collection(db, "cases"), {
-    ...data,
+    ...removeUndefined(data),
     createdAt: serverTimestamp(),
   });
 }
