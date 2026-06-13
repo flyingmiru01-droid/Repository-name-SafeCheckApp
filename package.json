@@ -3,12 +3,21 @@
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "base-64": "^1.0.0",
     "expo": "~56.0.11",
+    "expo-file-system": "~56.0.8",
+    "expo-image-picker": "~56.0.17",
+    "expo-linear-gradient": "~56.0.4",
     "expo-status-bar": "~56.0.4",
+    "firebase": "^12.14.0",
     "react": "19.2.3",
-    "react-native": "0.85.3"
+    "react-native": "0.85.3",
+    "react-native-gesture-handler": "~2.31.1",
+    "react-native-image-viewing": "^0.2.2"
   },
   "devDependencies": {
+    "@types/base-64": "^1.0.2",
     "@types/react": "~19.2.2",
     "typescript": "~6.0.3"
   },
