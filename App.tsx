@@ -88,6 +88,14 @@ function calcRisk(type: string, note: string, severity: Severity) {
   return Math.max(0, Math.min(100, score));
 }
 
+
+function riskBadgeText(score: number) {
+  if (score >= 90) return "🚨 極高風險";
+  if (score >= 75) return "🔴 高風險";
+  if (score >= 45) return "🟡 中風險";
+  return "🟢 低風險";
+}
+
 function riskLabel(score: number) {
   if (score >= 75) return "HIGH";
   if (score >= 45) return "MEDIUM";
@@ -375,6 +383,10 @@ export default function App() {
           車號：{publicView ? maskPlate(item.plate) : item.plate}
         </Text>
 
+        <View style={styles.riskPill}>
+          <Text style={styles.riskPillText}>{riskBadgeText(item.riskScore)}</Text>
+        </View>
+
         <View style={styles.grid}>
           <Text style={styles.gridText}>狀態：{statusText(item.status)}</Text>
           <Text style={styles.gridText}>分數：{item.riskScore}</Text>
@@ -421,6 +433,10 @@ export default function App() {
             <Text style={styles.recordPlate}>
               車號：{canViewFullDetail ? selected.plate : maskPlate(selected.plate)}
             </Text>
+
+            <View style={styles.riskPill}>
+              <Text style={styles.riskPillText}>{riskBadgeText(selected.riskScore)}</Text>
+            </View>
 
             <View style={styles.bigRisk}>
               <Text style={styles.bigRiskText}>
@@ -721,6 +737,21 @@ const styles = StyleSheet.create({
   riskText: { color: "#FFD166", fontWeight: "900", fontSize: 12 },
   recordName: { color: "#E9FFF1", fontSize: 24, fontWeight: "900", marginBottom: 4 },
   recordPlate: { color: "#19FF7A", fontSize: 17, fontWeight: "900", marginBottom: 12 },
+  riskPill: {
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderColor: "#FFD166",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginBottom: 12,
+    backgroundColor: "#161000",
+  },
+  riskPillText: {
+    color: "#FFD166",
+    fontWeight: "900",
+    fontSize: 13,
+  },
   grid: { borderTopWidth: 1, borderBottomWidth: 1, borderColor: "#137C3B", paddingVertical: 10, gap: 5 },
   gridText: { color: "#79FFB2", fontWeight: "800" },
   tapHint: { color: "#3F6F4E", fontWeight: "900", marginTop: 12, fontSize: 11 },
