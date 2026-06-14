@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Clipboard from "expo-clipboard";
 import * as ImagePicker from "expo-image-picker";
 import ImageViewing from "react-native-image-viewing";
 import { addCase, getCases } from "./lib/cases";
@@ -106,14 +107,25 @@ function generateAiRiskSummary(type: string, note: string, severity: Severity) {
   const text = `${type} ${note}`;
   const reasons: string[] = [];
 
-  if (text.includes("危險")) reasons.push("事件類型包含危險行為");
-  if (text.includes("騷擾")) reasons.push("事件類型包含騷擾疑慮");
-  if (text.includes("詐騙")) reasons.push("事件類型包含詐騙疑慮");
-  if (severity === "HIGH") reasons.push("嚴重程度標記為 HIGH");
+  if (text.includes("危險")) reasons.push("內容含有危險行為描述");
+  if (text.includes("騷擾")) reasons.push("內容含有騷擾疑慮");
+  if (text.includes("詐騙")) reasons.push("內容含有詐騙疑慮");
+  if (text.includes("逼車")) reasons.push("內容提及逼車或不當駕駛行為");
+  if (text.includes("酒駕")) reasons.push("內容提及酒後駕駛風險");
+  if (severity === "HIGH") reasons.push("通報者標記為高風險");
+  if (severity === "MEDIUM") reasons.push("通報者標記為中風險");
 
-  return reasons.length
-    ? `AI 初步分析：${reasons.join("、")}。`
-    : "AI 初步分析：目前僅保留安全提醒層級。";
+  const level = severityText(severity);
+
+  if (reasons.length === 0) {
+    return `AI 分析：本紀錄目前屬於${level}資料，尚未發現明確高風險關鍵字。建議持續觀察並保留相關證據。`;
+  }
+
+  return [
+    `AI 分析：本紀錄初步判定為${level}。`,
+    `主要原因：${reasons.join("、")}。`,
+    "建議：請保留照片、截圖、時間地點等佐證資料，並等待平台完成查證。"
+  ].join("\n");
 }
 
 
@@ -237,6 +249,12 @@ export default function App() {
     await AsyncStorage.setItem(HISTORY_KEY, JSON.stringify(next));
   }
 
+
+  async function copyCaseId(id: string) {
+    await Clipboard.setStringAsync(id);
+    Alert.alert("已複製", `案件編號 ${id} 已複製到剪貼簿`);
+  }
+
   async function clearSearchHistory() {
     setSearchHistory([]);
     await AsyncStorage.removeItem(HISTORY_KEY);
@@ -281,9 +299,9 @@ export default function App() {
       quality: 0.75,
     });
 
-    if (result.canceled) return;
+    if (result.cancelled) return;
 
-    const uri = result.assets[0]?.uri;
+    const uri = result.uri;
     if (!uri) return;
 
     if (kind === "profile") setReportProfileImage(uri);
@@ -433,6 +451,15 @@ export default function App() {
             <Text style={styles.recordPlate}>
               車號：{canViewFullDetail ? selected.plate : maskPlate(selected.plate)}
             </Text>
+
+            <Pressable
+              style={styles.copyBtn}
+              onPress={() => copyCaseId(selected.id)}
+            >
+              <Text style={styles.copyBtnText}>
+                📋 複製案件編號
+              </Text>
+            </Pressable>
 
             <View style={styles.riskPill}>
               <Text style={styles.riskPillText}>{riskBadgeText(selected.riskScore)}</Text>
@@ -826,5 +853,21 @@ const styles = StyleSheet.create({
   previewText: { color: "#3F6F4E", fontSize: 12, fontWeight: "800", marginTop: -6, marginBottom: 12 },
   previewImage: { width: "100%", height: 180, borderRadius: 14, borderWidth: 1, borderColor: "#19FF7A", marginBottom: 14, backgroundColor: "#000" },
   detailImage: { width: "100%", height: 220, borderRadius: 14, borderWidth: 1, borderColor: "#19FF7A", marginBottom: 14, backgroundColor: "#000" },
+
+
+  copyBtn: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: "#19FF7A",
+    borderRadius: 12,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+
+  copyBtnText: {
+    color: "#19FF7A",
+    fontWeight: "900",
+  },
+
   footer: { color: "#3F6F4E", textAlign: "center", marginTop: 22, fontWeight: "900", letterSpacing: 1 },
 });
