@@ -61,7 +61,7 @@ function severityText(severity?: string) {
 function App() {
   const [cases, setCases] = useState<CaseItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [tab, setTab] = useState<"cases" | "reviews" | "stats">("cases");
+  const [tab, setTab] = useState<"cases" | "reviews" | "stats" | "plates">("cases");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [rejectTarget, setRejectTarget] = useState<CaseItem | null>(null);
@@ -210,6 +210,12 @@ function App() {
         >
           統計
         </button>
+        <button
+          className={tab === "plates" ? "tabActive" : ""}
+          onClick={() => setTab("plates")}
+        >
+          車牌歷史
+        </button>
       </nav>
 
       {tab === "cases" ? (
@@ -242,6 +248,74 @@ function App() {
       </div>
 
         </>
+      ) : null}
+
+      {tab === "plates" ? (
+        <section className="statsPanel">
+          <div className="reviewHeader">
+            <div>
+              <p className="system">PLATE HISTORY</p>
+              <h2>車牌歷史整合</h2>
+            </div>
+          </div>
+
+          <div className="plateList">
+            {Object.entries(
+              cases.reduce((acc: Record<string, CaseItem[]>, item) => {
+                const plate = String(item.plate || "未提供").trim().toUpperCase();
+                if (!acc[plate]) acc[plate] = [];
+                acc[plate].push(item);
+                return acc;
+              }, {})
+            )
+              .map(([plate, items]) => {
+                const verified = items.filter((x) => (x.status || "").trim().toUpperCase() === "VERIFIED").length;
+                const pending = items.filter((x) => (x.status || "").trim().toUpperCase() === "PENDING").length;
+                const rejected = items.filter((x) => (x.status || "").trim().toUpperCase() === "REJECTED").length;
+                const avgRisk = Math.round(
+                  items.reduce((sum, x) => sum + (x.riskScore || 0), 0) / Math.max(1, items.length)
+                );
+                const maxRisk = Math.max(...items.map((x) => x.riskScore || 0));
+
+                return { plate, items, verified, pending, rejected, avgRisk, maxRisk };
+              })
+              .sort((a, b) => {
+                if (b.verified !== a.verified) return b.verified - a.verified;
+                if (b.maxRisk !== a.maxRisk) return b.maxRisk - a.maxRisk;
+                return b.items.length - a.items.length;
+              })
+              .map((group) => (
+                <div className="plateCard" key={group.plate}>
+                  <div className="plateHead">
+                    <div>
+                      <h2>{group.plate}</h2>
+                      <p>
+                        總案件 {group.items.length}｜已驗證 {group.verified}｜待查證 {group.pending}｜已拒絕 {group.rejected}
+                      </p>
+                    </div>
+                    <div className="plateRisk">
+                      平均 {group.avgRisk}
+                      <span>最高 {group.maxRisk}</span>
+                    </div>
+                  </div>
+
+                  <div className="plateTimeline">
+                    {group.items
+                      .slice()
+                      .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
+                      .map((item) => (
+                        <div className="plateTimelineItem" key={item.firebaseId}>
+                          <b>{item.id || item.firebaseId}</b>
+                          <span>{statusText(item.status)}｜{severityText(item.severity)}｜分數 {item.riskScore || 0}</span>
+                          <p>{item.date || "未提供日期"}｜{item.type || "未分類"}｜{item.name || "未提供姓名"}</p>
+                          <small>{item.reviewNote || item.note || "無備註"}</small>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              ))}
+          </div>
+        </section>
       ) : null}
 
       {tab === "stats" ? (
