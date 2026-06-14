@@ -910,7 +910,7 @@ export default function App() {
             )}
 
             {user && records
-              .filter((item) => item.uid === user.uid || item.email === user.email)
+              .filter((item) => item.uid === firebase.auth().currentUser?.uid || item.email === firebase.auth().currentUser?.email)
               .map((item) => <CaseCard key={item.id} item={item} />)}
           </View>
         )}
