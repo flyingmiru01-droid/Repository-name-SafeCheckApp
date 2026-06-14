@@ -299,9 +299,9 @@ export default function App() {
       quality: 0.75,
     });
 
-    if (result.cancelled) return;
+    if (result.canceled) return;
 
-    const uri = result.uri;
+    const uri = result.assets[0]?.uri;
     if (!uri) return;
 
     if (kind === "profile") setReportProfileImage(uri);

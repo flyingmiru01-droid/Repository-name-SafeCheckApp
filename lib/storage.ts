@@ -1,4 +1,4 @@
-import * as FileSystem from "expo-file-system";
+import * as FileSystem from "expo-file-system/legacy";
 
 const STORAGE_BUCKET = "safecheck-89b25.firebasestorage.app";
 
