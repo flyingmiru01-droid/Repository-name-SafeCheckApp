@@ -1,3 +1,4 @@
+import firebase from "./lib/firebase";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -15,10 +16,12 @@ import * as ImagePicker from "expo-image-picker";
 import ImageViewing from "react-native-image-viewing";
 import { addCase, getCases } from "./lib/cases";
 import { uploadImageAsync } from "./lib/storage";
+import { googleConfig, ADMIN_EMAIL } from "./lib/googleAuth";
+import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
 
 type Status = "PENDING" | "REVIEWING" | "VERIFIED" | "REJECTED";
 type Severity = "LOW" | "MEDIUM" | "HIGH";
-type Tab = "search" | "history" | "home" | "report";
+type Tab = "search" | "history" | "home" | "report" | "login";
 
 type RecordItem = {
   id: string;
@@ -190,10 +193,57 @@ export default function App() {
 
   const [viewerVisible, setViewerVisible] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
+  const [user, setUser] = useState<{ email: string } | null>(null);
+
+  const isAdmin = user?.email === ADMIN_EMAIL;
+
+  useEffect(() => {
+    GoogleSignin.configure({
+      webClientId: googleConfig.webClientId,
+      iosClientId: googleConfig.iosClientId,
+    });
+
+    const unsubscribe = firebase.auth().onAuthStateChanged((currentUser: any) => {
+      setUser(currentUser);
+    });
+
+    return unsubscribe;
+  }, []);
+
+  async function handleGoogleLogin() {
+    try {
+      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+
+      const result: any = await GoogleSignin.signIn();
+      const idToken = result?.idToken || result?.data?.idToken;
+
+      if (!idToken) {
+        Alert.alert("Google 登入失敗", "沒有取得 idToken");
+        return;
+      }
+
+      const credential = firebase.auth.GoogleAuthProvider.credential(idToken);
+      const firebaseUser = await firebase.auth().signInWithCredential(credential);
+      console.log("REAL FIREBASE LOGIN", firebaseUser.user?.email, "uid:", firebaseUser.user?.uid);
+    } catch (error: any) {
+      if (error?.code === statusCodes.SIGN_IN_CANCELLED) return;
+      console.log("Google login error", error);
+      Alert.alert("Google 登入失敗", String(error?.message || error));
+    }
+  }
+
+  async function handleGoogleLogout() {
+    try {
+      await GoogleSignin.signOut();
+    } catch {}
+    await firebase.auth().signOut();
+    setUser(null);
+  }
   const [viewerImages, setViewerImages] = useState<{ uri: string }[]>([]);
   const [viewerIndex, setViewerIndex] = useState(0);
 
-  const canViewFullDetail = selected?.status === "VERIFIED" && isPremium;
+  const canViewFullDetail =
+    selected?.status === "VERIFIED" && (isPremium || isAdmin);
 
   useEffect(() => {
     loadRecords();
@@ -619,6 +669,25 @@ export default function App() {
                 >
                   <Text style={styles.premiumButtonText}>升級 Premium 測試開關</Text>
                 </Pressable>
+
+                {user ? (
+                  <Pressable
+                    style={styles.premiumButton}
+                    onPress={handleGoogleLogout}
+                  >
+                    <Text style={styles.premiumButtonText}>
+                      Google 已登入：{user?.email || "已登入"}{isAdmin ? "｜ADMIN" : ""}，點我登出
+                    </Text>
+                  </Pressable>
+                ) : (
+                  <Pressable
+                    style={styles.premiumButton}
+                    
+                    onPress={handleGoogleLogin}
+                  >
+                    <Text style={styles.premiumButtonText}>使用 Google 登入</Text>
+                  </Pressable>
+                )}
               </View>
             )}
 
@@ -833,6 +902,56 @@ export default function App() {
           </View>
         )}
 
+        {tab === "login" && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Google 登入</Text>
+
+            {user ? (
+              <>
+                <Text style={[styles.line, { color: "#19FF7A", fontWeight: "900" }]}>
+                  ✅ 已登入 Google
+                </Text>
+
+                <Text style={styles.line}>
+                  登入帳號：{user.email || "已登入"}
+                </Text>
+
+                <Text style={styles.line}>
+                  權限狀態：{isAdmin ? "ADMIN 管理員" : isPremium ? "Premium 會員" : "免費會員"}
+                </Text>
+
+                <Pressable
+                  style={styles.premiumButton}
+                  onPress={handleGoogleLogout}
+                >
+                  <Text style={styles.premiumButtonText}>登出 Google</Text>
+                </Pressable>
+              </>
+            ) : (
+              <>
+                <Text style={styles.line}>
+                  登入後可同步會員狀態與管理員權限。
+                </Text>
+
+                <Pressable
+                  style={styles.premiumButton}
+                  
+                  onPress={handleGoogleLogin}
+                >
+                  <Text style={styles.premiumButtonText}>使用 Google 登入</Text>
+                </Pressable>
+              </>
+            )}
+
+            <Pressable
+              style={styles.premiumButton}
+              onPress={() => setIsPremium(true)}
+            >
+              <Text style={styles.premiumButtonText}>升級 Premium 測試開關</Text>
+            </Pressable>
+          </View>
+        )}
+
         {tab === "report" && (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>建立安全資料</Text>
@@ -888,10 +1007,10 @@ export default function App() {
         </View>
 
         <View style={styles.bottomNav}>
-          {(["search", "history", "home", "report"] as Tab[]).map((t) => (
+          {(["search", "history", "home", "report", "login"] as Tab[]).map((t) => (
             <Pressable key={t} style={styles.navItem} onPress={() => setTab(t)}>
               <Text style={[styles.navText, tab === t && styles.navActive]}>
-                {t === "search" ? "查詢" : t === "history" ? "紀錄" : t === "home" ? "狀態" : "建檔"}
+                {t === "search" ? "查詢" : t === "history" ? "紀錄" : t === "home" ? "狀態" : t === "report" ? "建檔" : "登入"}
               </Text>
             </Pressable>
           ))}
