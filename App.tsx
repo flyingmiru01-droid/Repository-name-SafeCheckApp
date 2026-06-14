@@ -225,14 +225,20 @@ export default function App() {
 
     const key = searchType === "plate" ? normalizePlate(keyword) : normalizeText(keyword);
 
-    return records.filter((item) => {
-      const target =
-        searchType === "plate"
-          ? normalizePlate(item.plate)
-          : normalizeText(item.name);
+    return records
+      .filter((item) => {
+        const target =
+          searchType === "plate"
+            ? normalizePlate(item.plate)
+            : normalizeText(item.name);
 
-      return target.includes(key);
-    });
+        return target.includes(key);
+      })
+      .sort((a, b) => {
+        if (a.status === "VERIFIED" && b.status !== "VERIFIED") return -1;
+        if (a.status !== "VERIFIED" && b.status === "VERIFIED") return 1;
+        return b.riskScore - a.riskScore;
+      });
   }, [hasSearched, keyword, records, searchType]);
 
   async function pickImage(kind: "profile" | "plate") {
