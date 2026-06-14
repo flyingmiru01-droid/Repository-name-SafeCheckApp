@@ -61,7 +61,7 @@ function severityText(severity?: string) {
 function App() {
   const [cases, setCases] = useState<CaseItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [tab, setTab] = useState<"cases" | "reviews">("cases");
+  const [tab, setTab] = useState<"cases" | "reviews" | "stats">("cases");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [rejectTarget, setRejectTarget] = useState<CaseItem | null>(null);
@@ -204,6 +204,12 @@ function App() {
         >
           審核紀錄
         </button>
+        <button
+          className={tab === "stats" ? "tabActive" : ""}
+          onClick={() => setTab("stats")}
+        >
+          統計
+        </button>
       </nav>
 
       {tab === "cases" ? (
@@ -236,6 +242,28 @@ function App() {
       </div>
 
         </>
+      ) : null}
+
+      {tab === "stats" ? (
+        <section className="statsPanel">
+          <div className="reviewHeader">
+            <div>
+              <p className="system">STATISTICS</p>
+              <h2>案件統計</h2>
+            </div>
+          </div>
+
+          <div className="statsGrid">
+            <div>總案件<span>{cases.length}</span></div>
+            <div>待查證<span>{cases.filter((x) => (x.status || "").trim().toUpperCase() === "PENDING").length}</span></div>
+            <div>已驗證<span>{cases.filter((x) => (x.status || "").trim().toUpperCase() === "VERIFIED").length}</span></div>
+            <div>已拒絕<span>{cases.filter((x) => (x.status || "").trim().toUpperCase() === "REJECTED").length}</span></div>
+            <div>高風險<span>{cases.filter((x) => (x.severity || "").trim().toUpperCase() === "HIGH").length}</span></div>
+            <div>中風險<span>{cases.filter((x) => (x.severity || "").trim().toUpperCase() === "MEDIUM").length}</span></div>
+            <div>低風險<span>{cases.filter((x) => (x.severity || "").trim().toUpperCase() === "LOW").length}</span></div>
+            <div>平均分數<span>{Math.round(cases.reduce((sum, x) => sum + (x.riskScore || 0), 0) / Math.max(1, cases.length))}</span></div>
+          </div>
+        </section>
       ) : null}
 
       {tab === "reviews" ? (

@@ -251,3 +251,33 @@ h2 {
   padding: 12px;
   margin-bottom: 10px;
 }
+
+.statsPanel {
+  border: 1px solid #137c3b;
+  background: #06130b;
+  border-radius: 20px;
+  padding: 20px;
+  margin-bottom: 18px;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.statsGrid div {
+  background: #030a06;
+  border: 1px solid #163d25;
+  border-radius: 16px;
+  padding: 18px;
+  color: #79ffb2;
+  font-weight: 900;
+}
+
+.statsGrid span {
+  display: block;
+  color: #19ff7a;
+  font-size: 34px;
+  margin-top: 10px;
+}
