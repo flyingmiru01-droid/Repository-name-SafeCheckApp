@@ -11,7 +11,6 @@ import {
   View,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as Clipboard from "expo-clipboard";
 import * as ImagePicker from "expo-image-picker";
 import ImageViewing from "react-native-image-viewing";
 import { addCase, getCases } from "./lib/cases";
@@ -250,10 +249,6 @@ export default function App() {
   }
 
 
-  async function copyCaseId(id: string) {
-    await Clipboard.setStringAsync(id);
-    Alert.alert("已複製", `案件編號 ${id} 已複製到剪貼簿`);
-  }
 
   async function clearSearchHistory() {
     setSearchHistory([]);
@@ -452,14 +447,6 @@ export default function App() {
               車號：{canViewFullDetail ? selected.plate : maskPlate(selected.plate)}
             </Text>
 
-            <Pressable
-              style={styles.copyBtn}
-              onPress={() => copyCaseId(selected.id)}
-            >
-              <Text style={styles.copyBtnText}>
-                📋 複製案件編號
-              </Text>
-            </Pressable>
 
             <View style={styles.riskPill}>
               <Text style={styles.riskPillText}>{riskBadgeText(selected.riskScore)}</Text>
@@ -854,20 +841,6 @@ const styles = StyleSheet.create({
   previewImage: { width: "100%", height: 180, borderRadius: 14, borderWidth: 1, borderColor: "#19FF7A", marginBottom: 14, backgroundColor: "#000" },
   detailImage: { width: "100%", height: 220, borderRadius: 14, borderWidth: 1, borderColor: "#19FF7A", marginBottom: 14, backgroundColor: "#000" },
 
-
-  copyBtn: {
-    marginTop: 10,
-    borderWidth: 1,
-    borderColor: "#19FF7A",
-    borderRadius: 12,
-    paddingVertical: 10,
-    alignItems: "center",
-  },
-
-  copyBtnText: {
-    color: "#19FF7A",
-    fontWeight: "900",
-  },
 
   footer: { color: "#3F6F4E", textAlign: "center", marginTop: 22, fontWeight: "900", letterSpacing: 1 },
 });
