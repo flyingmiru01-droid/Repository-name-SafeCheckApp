@@ -439,6 +439,19 @@ export default function App() {
               <Text style={styles.detailLine}>平均風險：{Math.round(avgRisk)}</Text>
             </View>
 
+            <View style={styles.timelineBox}>
+              <Text style={styles.sectionTitle}>歷史紀錄</Text>
+
+              {plateGroup
+                .sort((a, b) => String(b.date).localeCompare(String(a.date)))
+                .slice(0, 10)
+                .map((item) => (
+                  <Text key={item.id} style={styles.timelineText}>
+                    {item.date}｜{statusText(item.status)}｜{item.type}｜{severityText(item.severity)}
+                  </Text>
+                ))}
+            </View>
+
             <View style={styles.aiBox}>
               <Text style={styles.sectionTitle}>AI 風險分析</Text>
               <Text style={styles.aiText}>{selected.aiSummary}</Text>
@@ -704,6 +717,23 @@ const styles = StyleSheet.create({
   limitedText: { color: "#FFF0B8", fontWeight: "800", lineHeight: 22, marginTop: 8 },
   historyBox: { borderWidth: 1, borderColor: "#FFD166", borderRadius: 16, padding: 14, marginVertical: 14 },
   sectionTitle: { color: "#19FF7A", fontSize: 16, fontWeight: "900", marginBottom: 10, letterSpacing: 1 },
+
+  timelineBox: {
+    backgroundColor: "#07110B",
+    borderWidth: 1,
+    borderColor: "#163D25",
+    borderRadius: 16,
+    padding: 14,
+    marginTop: 12,
+  },
+
+  timelineText: {
+    color: "#CDEFD8",
+    fontSize: 13,
+    marginTop: 8,
+    lineHeight: 20,
+  },
+
   aiBox: { borderWidth: 1, borderColor: "#19FF7A", borderRadius: 16, padding: 14, marginVertical: 14 },
   aiText: { color: "#C8FFD9", fontWeight: "800", lineHeight: 22 },
   noteBox: { borderWidth: 1, borderColor: "#137C3B", borderRadius: 14, padding: 12, marginVertical: 12 },
