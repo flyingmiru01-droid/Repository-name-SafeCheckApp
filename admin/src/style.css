@@ -209,3 +209,22 @@ h2 {
   color: #001f0d;
   border-color: #19ff7a;
 }
+
+.filterBar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.filterBar input,
+.filterBar select {
+  background: #06130b;
+  border: 1px solid #137c3b;
+  color: #E9FFF1;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.filterBar input {
+  flex: 1;
+}

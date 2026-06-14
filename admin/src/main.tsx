@@ -62,6 +62,8 @@ function App() {
   const [cases, setCases] = useState<CaseItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [tab, setTab] = useState<"cases" | "reviews">("cases");
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
   const [rejectTarget, setRejectTarget] = useState<CaseItem | null>(null);
   const [rejectReason, setRejectReason] = useState("照片模糊");
   const [customRejectReason, setCustomRejectReason] = useState("");
@@ -138,7 +140,27 @@ function App() {
       };
     });
 
+
+  const filteredCases = cases.filter((item) => {
+    const keyword = search.trim().toLowerCase();
+
+    const matchSearch =
+      !keyword ||
+      String(item.name || "").toLowerCase().includes(keyword) ||
+      String(item.plate || "").toLowerCase().includes(keyword) ||
+      String(item.id || "").toLowerCase().includes(keyword);
+
+    const status = String(item.status || "").trim().toUpperCase();
+
+    const matchStatus =
+      statusFilter === "ALL" ||
+      status === statusFilter;
+
+    return matchSearch && matchStatus;
+  });
+
   return (
+
     <div className="page">
       <header>
         <div>
@@ -166,7 +188,27 @@ function App() {
 
       {tab === "cases" ? (
         <>
-      <div className="summary">
+      
+<div className="filterBar">
+  <input
+    placeholder="搜尋姓名 / 車牌 / 案件編號"
+    value={search}
+    onChange={(e) => setSearch(e.target.value)}
+  />
+
+  <select
+    value={statusFilter}
+    onChange={(e) => setStatusFilter(e.target.value)}
+  >
+    <option value="ALL">全部</option>
+    <option value="PENDING">待查證</option>
+    <option value="VERIFIED">已驗證</option>
+    <option value="REJECTED">已拒絕</option>
+  </select>
+</div>
+
+<div className="summary">
+
         <div>總案件：{cases.length}</div>
         <div>待查證：{cases.filter((x) => (x.status || "").trim().toUpperCase() === "PENDING").length}</div>
         <div>已驗證：{cases.filter((x) => (x.status || "").trim().toUpperCase() === "VERIFIED").length}</div>
@@ -247,7 +289,7 @@ function App() {
         </div>
       ) : null}
 
-      {cases.map((item) => (
+      {filteredCases.map((item) => (
         <section className="card" key={item.firebaseId}>
           <div className="top">
             <div>
