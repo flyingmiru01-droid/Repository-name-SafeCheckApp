@@ -43,6 +43,14 @@ type RecordItem = {
   plateImageUrl?: string;
   uid?: string;
   email?: string;
+  editStatus?: "NONE" | "REVIEWING";
+  pendingEdit?: {
+    evidence?: string;
+    note?: string;
+    severity?: Severity;
+    updatedBy?: string;
+    updatedAt?: any;
+  };
 };
 
 type PlateGroup = {
@@ -291,6 +299,8 @@ export default function App() {
           plateImageUrl: item.plateImageUrl,
           uid: item.uid,
           email: item.email,
+          editStatus: item.editStatus || "NONE",
+          pendingEdit: item.pendingEdit || null,
         })) as RecordItem[];
 
         setRecords(mapped);
@@ -486,13 +496,18 @@ export default function App() {
       return;
     }
 
-    const nextRecord: RecordItem = {
-      ...item,
+    const pendingEdit = {
       evidence: editEvidence.trim() || "未提供",
       note: editNote.trim() || "未填寫",
       severity: editSeverity,
-      riskScore: calcRisk(item.type, editNote, editSeverity),
-      aiSummary: generateAiRiskSummary(item.type, editNote, editSeverity),
+      updatedBy: currentUser?.email || "",
+      updatedAt: new Date().toISOString(),
+    };
+
+    const nextRecord: RecordItem = {
+      ...item,
+      editStatus: "REVIEWING",
+      pendingEdit,
     };
 
     const next = records.map((r) => (r.id === item.id ? nextRecord : r));
@@ -500,14 +515,21 @@ export default function App() {
     setSelected((prev) => (prev?.id === item.id ? nextRecord : prev));
 
     try {
-      await db.collection("cases").doc(item.id).set(nextRecord, { merge: true });
+      await db.collection("cases").doc(item.id).set(
+        {
+          editStatus: "REVIEWING",
+          pendingEdit,
+        },
+        { merge: true }
+      );
     } catch (e) {
-      console.log("Firebase 編輯同步失敗，已更新本機", e);
+      console.log("Firebase 修改申請同步失敗，已先保留本機", e);
     }
 
     setEditingCaseId("");
-    Alert.alert("已更新", "我的案件已更新。");
+    Alert.alert("已送出", "修改申請已送出，需等待管理員審核後才會正式更新。");
   }
+
 
   async function submitReport() {
     const plate = normalizePlate(reportPlate);
@@ -582,6 +604,55 @@ export default function App() {
     setTab("search");
 
     Alert.alert("資料已建立", "資料已加入本機查詢庫，狀態為待查證。");
+  }
+
+
+  async function deleteMyCase(item: RecordItem) {
+    const currentUser = firebase.auth().currentUser;
+
+    const canDelete =
+      isAdmin ||
+      item.uid === currentUser?.uid ||
+      item.email === currentUser?.email;
+
+    if (!canDelete) {
+      Alert.alert("無權限", "只能刪除自己的案件。");
+      return;
+    }
+
+    Alert.alert(
+      "刪除案件",
+      `確定刪除 ${item.id}？\n此動作無法復原。`,
+      [
+        { text: "取消", style: "cancel" },
+        {
+          text: "刪除",
+          style: "destructive",
+          onPress: async () => {
+            const next = records.filter(
+              (r) => r.id !== item.id
+            );
+
+            await saveRecords(next);
+
+            try {
+              await db
+                .collection("cases")
+                .doc(item.id)
+                .delete();
+            } catch (e) {
+              console.log("Firebase delete error", e);
+            }
+
+            if (selected?.id === item.id) {
+              setSelected(null);
+            }
+
+            Alert.alert("完成", "案件已刪除");
+          },
+        },
+      ]
+    );
   }
 
   function CaseCard({ item }: { item: RecordItem }) {
@@ -969,6 +1040,10 @@ export default function App() {
                 <View key={item.id}>
                   <CaseCard item={item} />
 
+                  {item.editStatus === "REVIEWING" ? (
+                    <Text style={styles.emptyText}>修改申請審核中，正式內容尚未更新。</Text>
+                  ) : null}
+
                   {editingCaseId === item.id ? (
                     <View style={styles.noteBox}>
                       <Text style={styles.sectionTitle}>編輯我的案件</Text>
@@ -1006,7 +1081,7 @@ export default function App() {
                       </View>
 
                       <Pressable style={styles.button} onPress={() => saveEditMyCase(item)}>
-                        <Text style={styles.buttonText}>儲存修改</Text>
+                        <Text style={styles.buttonText}>送出修改申請</Text>
                       </Pressable>
 
                       <Pressable style={styles.secondaryButton} onPress={() => setEditingCaseId("")}>
@@ -1014,9 +1089,20 @@ export default function App() {
                       </Pressable>
                     </View>
                   ) : (
-                    <Pressable style={styles.secondaryButton} onPress={() => startEditMyCase(item)}>
-                      <Text style={styles.secondaryText}>編輯我的案件</Text>
-                    </Pressable>
+                    <View>
+                      <Pressable style={styles.secondaryButton} onPress={() => startEditMyCase(item)}>
+                        <Text style={styles.secondaryText}>編輯我的案件</Text>
+                      </Pressable>
+
+                      <Pressable
+                        style={[styles.secondaryButton, { backgroundColor: "#B71C1C", marginTop: 8 }]}
+                        onPress={() => deleteMyCase(item)}
+                      >
+                        <Text style={[styles.secondaryText, { color: "#fff" }]}>
+                          刪除案件
+                        </Text>
+                      </Pressable>
+                    </View>
                   )}
                 </View>
               ))}

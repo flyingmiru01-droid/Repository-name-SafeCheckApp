@@ -5,6 +5,7 @@ import {
   getFirestore,
   collection,
   getDocs,
+  getDoc,
   updateDoc,
   doc,
   query,
@@ -44,6 +45,14 @@ type CaseItem = {
   reviewNote?: string;
   profileImageUrl?: string;
   plateImageUrl?: string;
+  editStatus?: string;
+  pendingEdit?: {
+    evidence?: string;
+    note?: string;
+    severity?: string;
+    updatedBy?: string;
+    updatedAt?: any;
+  } | null;
 };
 
 function statusText(status?: string) {
@@ -88,23 +97,48 @@ function App() {
   async function changeStatus(
     firebaseId: string,
     status: "VERIFIED" | "REJECTED" | "PENDING",
-    note?: string
+    reason?: string
   ) {
-    await updateDoc(doc(db, "cases", firebaseId), {
+    const ref = doc(db, "cases", firebaseId);
+    const snap = await getDoc(ref);
+    const data: any = snap.exists() ? snap.data() : {};
+    const pendingEdit = data.pendingEdit;
+
+    const updateData: any = {
       status,
       reviewer: "Admin",
       reviewedAt: serverTimestamp(),
       reviewNote:
-        note ||
+        reason ||
         (status === "VERIFIED"
           ? "管理員已核准"
           : status === "REJECTED"
           ? "管理員已拒絕"
           : "退回待查證"),
-    });
+    };
 
+    // 若使用者有送出修改申請，管理員按 VERIFIED 才正式套用修改
+    if (pendingEdit && status === "VERIFIED") {
+      updateData.evidence = pendingEdit.evidence || data.evidence || "未提供";
+      updateData.note = pendingEdit.note || data.note || "未填寫";
+      updateData.severity = pendingEdit.severity || data.severity || "MEDIUM";
+      updateData.editStatus = "NONE";
+      updateData.pendingEdit = null;
+      updateData.reviewNote = "管理員已核准修改申請";
+    }
+
+    // 若使用者有送出修改申請，管理員按 REJECTED 就拒絕修改，但保留原案件狀態
+    if (pendingEdit && status === "REJECTED") {
+      updateData.status = data.status || "PENDING";
+      updateData.editStatus = "NONE";
+      updateData.pendingEdit = null;
+      updateData.reviewNote = reason || "管理員已拒絕修改申請，原內容維持不變";
+    }
+
+    await updateDoc(ref, updateData);
     await loadCases();
   }
+
 
   async function saveEdit() {
     if (!editTarget) return;
