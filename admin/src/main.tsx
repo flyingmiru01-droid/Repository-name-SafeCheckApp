@@ -140,6 +140,39 @@ function App() {
   }
 
 
+  async function approvePendingEdit(item: CaseItem) {
+    if (!item.firebaseId || !item.pendingEdit) return;
+
+    const pendingEdit: any = item.pendingEdit;
+
+    await updateDoc(doc(db, "cases", item.firebaseId), {
+      evidence: pendingEdit.evidence || item.evidence || "未提供",
+      note: pendingEdit.note || item.note || "未填寫",
+      severity: pendingEdit.severity || item.severity || "MEDIUM",
+      editStatus: "NONE",
+      pendingEdit: null,
+      reviewer: "Admin",
+      reviewedAt: serverTimestamp(),
+      reviewNote: "管理員已核准修改申請",
+    });
+
+    await loadCases();
+  }
+
+  async function rejectPendingEdit(item: CaseItem) {
+    if (!item.firebaseId) return;
+
+    await updateDoc(doc(db, "cases", item.firebaseId), {
+      editStatus: "NONE",
+      pendingEdit: null,
+      reviewer: "Admin",
+      reviewedAt: serverTimestamp(),
+      reviewNote: "管理員已拒絕修改申請，原內容維持不變",
+    });
+
+    await loadCases();
+  }
+
   async function saveEdit() {
     if (!editTarget) return;
 
@@ -535,6 +568,39 @@ function App() {
               </button>
             </div>
           </div>
+
+          {item.pendingEdit ? (
+            <div
+              style={{
+                border: "2px solid #f59e0b",
+                padding: 12,
+                borderRadius: 12,
+                marginBottom: 12,
+                background: "#111827",
+              }}
+            >
+              <h3 style={{ color: "#fbbf24" }}>📝 修改申請待審核</h3>
+
+              <p style={{ color: "#e5e7eb" }}><b>修改者：</b>{item.pendingEdit.updatedBy || "未知"}</p>
+              <p style={{ color: "#e5e7eb" }}><b>新證據：</b>{item.pendingEdit.evidence || "未提供"}</p>
+              <p style={{ color: "#e5e7eb" }}><b>新描述：</b>{item.pendingEdit.note || "未填寫"}</p>
+              <p style={{ color: "#e5e7eb" }}><b>新風險：</b>{item.pendingEdit.severity || "MEDIUM"}</p>
+
+              <p style={{ color: "#f87171", fontWeight: 900 }}>
+                狀態：{item.editStatus || "REVIEWING"}
+              </p>
+
+              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                <button className="ok" onClick={() => approvePendingEdit(item)}>
+                  核准修改
+                </button>
+
+                <button className="reject" onClick={() => rejectPendingEdit(item)}>
+                  拒絕修改
+                </button>
+              </div>
+            </div>
+          ) : null}
 
           <div className="grid">
             <p>姓名：{item.name || "未提供"}</p>

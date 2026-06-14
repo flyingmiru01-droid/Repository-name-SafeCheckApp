@@ -515,13 +515,26 @@ export default function App() {
     setSelected((prev) => (prev?.id === item.id ? nextRecord : prev));
 
     try {
-      await db.collection("cases").doc(item.id).set(
-        {
-          editStatus: "REVIEWING",
-          pendingEdit,
-        },
-        { merge: true }
-      );
+      const snap = await db.collection("cases").where("id", "==", item.id).limit(1).get();
+
+      if (!snap.empty) {
+        await snap.docs[0].ref.set(
+          {
+            editStatus: "REVIEWING",
+            pendingEdit,
+          },
+          { merge: true }
+        );
+      } else {
+        await db.collection("cases").doc(item.id).set(
+          {
+            ...item,
+            editStatus: "REVIEWING",
+            pendingEdit,
+          },
+          { merge: true }
+        );
+      }
     } catch (e) {
       console.log("Firebase 修改申請同步失敗，已先保留本機", e);
     }
