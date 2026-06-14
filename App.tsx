@@ -37,6 +37,18 @@ type RecordItem = {
   plateImageUrl?: string;
 };
 
+type PlateGroup = {
+  plate: string;
+  items: RecordItem[];
+  best: RecordItem;
+  total: number;
+  verifiedCount: number;
+  pendingCount: number;
+  avgRisk: number;
+  maxRisk: number;
+  latestDate: string;
+};
+
 const STORAGE_KEY = "SAFE_CHECK_RECORDS_V4";
 const HISTORY_KEY = "SAFE_CHECK_HISTORY_V3";
 
@@ -293,6 +305,64 @@ export default function App() {
       });
   }, [hasSearched, keyword, records, searchType]);
 
+  const groupedResults = useMemo(() => {
+    const map = new Map<string, RecordItem[]>();
+
+    results.forEach((item) => {
+      const key = normalizePlate(item.plate) || item.id;
+      const current = map.get(key) || [];
+      current.push(item);
+      map.set(key, current);
+    });
+
+    return Array.from(map.entries())
+      .map(([plate, items]) => {
+        const sorted = [...items].sort((a, b) => {
+          if (a.status === "VERIFIED" && b.status !== "VERIFIED") return -1;
+          if (a.status !== "VERIFIED" && b.status === "VERIFIED") return 1;
+
+          if (b.riskScore !== a.riskScore) {
+            return b.riskScore - a.riskScore;
+          }
+
+          return String(b.date).localeCompare(String(a.date));
+        });
+
+        const verifiedCount = items.filter((item) => item.status === "VERIFIED").length;
+        const pendingCount = items.filter((item) => item.status === "PENDING").length;
+        const avgRisk =
+          items.reduce((sum, item) => sum + item.riskScore, 0) /
+          Math.max(1, items.length);
+        const maxRisk = Math.max(...items.map((item) => item.riskScore));
+        const latestDate = [...items]
+          .map((item) => String(item.date || ""))
+          .sort((a, b) => b.localeCompare(a))[0];
+
+        return {
+          plate,
+          items: sorted,
+          best: sorted[0],
+          total: items.length,
+          verifiedCount,
+          pendingCount,
+          avgRisk,
+          maxRisk,
+          latestDate,
+        } as PlateGroup;
+      })
+      .sort((a, b) => {
+        if (b.verifiedCount !== a.verifiedCount) {
+          return b.verifiedCount - a.verifiedCount;
+        }
+
+        if (b.maxRisk !== a.maxRisk) {
+          return b.maxRisk - a.maxRisk;
+        }
+
+        return String(b.latestDate).localeCompare(String(a.latestDate));
+      });
+  }, [results]);
+
   async function pickImage(kind: "profile" | "plate") {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -413,6 +483,48 @@ export default function App() {
         </View>
 
         <Text style={styles.tapHint}>點擊查看事件描述</Text>
+      </Pressable>
+    );
+  }
+
+
+  function PlateGroupCard({ group }: { group: PlateGroup }) {
+    const item = group.best;
+    const publicView = group.verifiedCount === 0;
+
+    return (
+      <Pressable style={styles.recordCard} onPress={() => setSelected(item)}>
+        <View style={styles.recordTop}>
+          <Text style={styles.recordId}>同車牌整合｜{group.total} 筆紀錄</Text>
+          <View style={styles.riskBadge}>
+            <Text style={styles.riskText}>{riskBadgeText(group.maxRisk)}</Text>
+          </View>
+        </View>
+
+        <Text style={styles.recordName}>
+          {publicView ? maskName(item.name) : item.name}
+        </Text>
+
+        <Text style={styles.recordPlate}>
+          車號：{publicView ? maskPlate(group.plate) : group.plate}
+        </Text>
+
+        <View style={styles.riskPill}>
+          <Text style={styles.riskPillText}>
+            最高風險 {group.maxRisk}｜平均 {Math.round(group.avgRisk)}
+          </Text>
+        </View>
+
+        <View style={styles.grid}>
+          <Text style={styles.gridText}>總案件：{group.total}</Text>
+          <Text style={styles.gridText}>已驗證：{group.verifiedCount}</Text>
+          <Text style={styles.gridText}>待查證：{group.pendingCount}</Text>
+          <Text style={styles.gridText}>最新日期：{group.latestDate || "未提供"}</Text>
+          <Text style={styles.gridText}>代表案件：{item.id}</Text>
+          <Text style={styles.gridText}>主要類型：{item.type}</Text>
+        </View>
+
+        <Text style={styles.tapHint}>點擊查看完整歷史</Text>
       </Pressable>
     );
   }
@@ -622,14 +734,14 @@ export default function App() {
               <Text style={styles.resultLine}>
                 NORMALIZED：{searchType === "plate" ? normalizePlate(keyword) || "NULL" : normalizeText(keyword) || "NULL"}
               </Text>
-              <Text style={styles.resultLine}>MATCH：{hasSearched ? results.length : "LOCKED"}</Text>
+              <Text style={styles.resultLine}>MATCH：{hasSearched ? groupedResults.length : "LOCKED"}</Text>
             </View>
 
             {hasSearched && results.length === 0 && (
               <Text style={styles.emptyText}>查無資料。</Text>
             )}
 
-            {hasSearched && results.map((item) => <CaseCard key={item.id} item={item} />)}
+            {hasSearched && groupedResults.map((group) => <PlateGroupCard key={group.plate} group={group} />)}
           </View>
         )}
 
