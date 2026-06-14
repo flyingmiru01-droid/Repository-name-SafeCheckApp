@@ -189,10 +189,11 @@ export default function App() {
   const [reportPlateImage, setReportPlateImage] = useState("");
 
   const [viewerVisible, setViewerVisible] = useState(false);
+  const [isPremium, setIsPremium] = useState(false);
   const [viewerImages, setViewerImages] = useState<{ uri: string }[]>([]);
   const [viewerIndex, setViewerIndex] = useState(0);
 
-  const canViewFullDetail = selected?.status === "VERIFIED";
+  const canViewFullDetail = selected?.status === "VERIFIED" && isPremium;
 
   useEffect(() => {
     loadRecords();
@@ -279,6 +280,13 @@ export default function App() {
     if (!clean) {
       Alert.alert("請輸入查詢內容", "請輸入車號或姓名。");
       return;
+    }
+
+    if (!isPremium) {
+      Alert.alert(
+        "免費查詢",
+        "免費會員查詢前需觀看廣告，查詢結果僅顯示摘要。"
+      );
     }
 
     setHasSearched(true);
@@ -600,10 +608,17 @@ export default function App() {
 
             {!canViewFullDetail && (
               <View style={styles.limitedBox}>
-                <Text style={styles.limitedTitle}>公開摘要模式</Text>
+                <Text style={styles.limitedTitle}>免費摘要模式</Text>
                 <Text style={styles.limitedText}>
-                  本資料尚未完成驗證，僅顯示安全提醒與基本資訊。
+                  免費會員僅能查看摘要結果。完整歷史紀錄、照片、AI 詳細分析與審核資訊需升級 Premium。
                 </Text>
+
+                <Pressable
+                  style={styles.premiumButton}
+                  onPress={() => setIsPremium(true)}
+                >
+                  <Text style={styles.premiumButtonText}>升級 Premium 測試開關</Text>
+                </Pressable>
               </View>
             )}
 
@@ -640,10 +655,17 @@ export default function App() {
                 ))}
             </View>
 
-            <View style={styles.aiBox}>
-              <Text style={styles.sectionTitle}>AI 風險分析</Text>
-              <Text style={styles.aiText}>{selected.aiSummary}</Text>
-            </View>
+            {isPremium ? (
+              <View style={styles.aiBox}>
+                <Text style={styles.sectionTitle}>AI 風險分析</Text>
+                <Text style={styles.aiText}>{selected.aiSummary}</Text>
+              </View>
+            ) : (
+              <View style={styles.aiBox}>
+                <Text style={styles.sectionTitle}>AI 風險分析</Text>
+                <Text style={styles.aiText}>🔒 Premium 會員可查看完整 AI 分析。</Text>
+              </View>
+            )}
 
             {canViewFullDetail && (
               <>
@@ -1003,5 +1025,7 @@ const styles = StyleSheet.create({
   detailImage: { width: "100%", height: 220, borderRadius: 14, borderWidth: 1, borderColor: "#19FF7A", marginBottom: 14, backgroundColor: "#000" },
 
 
+  premiumButton: { marginTop: 12, backgroundColor: "#19FF7A", borderRadius: 12, paddingVertical: 12, alignItems: "center" },
+  premiumButtonText: { color: "#001F0D", fontWeight: "900" },
   footer: { color: "#3F6F4E", textAlign: "center", marginTop: 22, fontWeight: "900", letterSpacing: 1 },
 });

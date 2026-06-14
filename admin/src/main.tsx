@@ -39,6 +39,9 @@ type CaseItem = {
   evidence?: string;
   note?: string;
   aiSummary?: string;
+  reviewer?: string;
+  reviewedAt?: any;
+  reviewNote?: string;
   profileImageUrl?: string;
   plateImageUrl?: string;
 };
