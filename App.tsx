@@ -284,7 +284,12 @@ export default function App() {
       .sort((a, b) => {
         if (a.status === "VERIFIED" && b.status !== "VERIFIED") return -1;
         if (a.status !== "VERIFIED" && b.status === "VERIFIED") return 1;
-        return b.riskScore - a.riskScore;
+
+        if (b.riskScore !== a.riskScore) {
+          return b.riskScore - a.riskScore;
+        }
+
+        return String(b.date).localeCompare(String(a.date));
       });
   }, [hasSearched, keyword, records, searchType]);
 
@@ -527,7 +532,7 @@ export default function App() {
                 ) : null}
 
                 <View style={styles.noteBox}>
-                  <Text style={styles.sectionTitle}>case_note:</Text>
+                  <Text style={styles.sectionTitle}>事件備註</Text>
                   <Text style={styles.note}>{selected.note}</Text>
                 </View>
               </>
