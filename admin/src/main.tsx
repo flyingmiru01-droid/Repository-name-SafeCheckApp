@@ -9,6 +9,7 @@ import {
   doc,
   query,
   orderBy,
+  serverTimestamp,
 } from "firebase/firestore";
 import "./style.css";
 
@@ -60,6 +61,9 @@ function severityText(severity?: string) {
 function App() {
   const [cases, setCases] = useState<CaseItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [rejectTarget, setRejectTarget] = useState<CaseItem | null>(null);
+  const [rejectReason, setRejectReason] = useState("照片模糊");
+  const [customRejectReason, setCustomRejectReason] = useState("");
 
   async function loadCases() {
     setLoading(true);
@@ -74,9 +78,40 @@ function App() {
     setLoading(false);
   }
 
-  async function changeStatus(firebaseId: string, status: "VERIFIED" | "REJECTED" | "PENDING") {
-    await updateDoc(doc(db, "cases", firebaseId), { status });
+  async function changeStatus(
+    firebaseId: string,
+    status: "VERIFIED" | "REJECTED" | "PENDING",
+    note?: string
+  ) {
+    await updateDoc(doc(db, "cases", firebaseId), {
+      status,
+      reviewer: "Admin",
+      reviewedAt: serverTimestamp(),
+      reviewNote:
+        note ||
+        (status === "VERIFIED"
+          ? "管理員已核准"
+          : status === "REJECTED"
+          ? "管理員已拒絕"
+          : "退回待查證"),
+    });
+
     await loadCases();
+  }
+
+  async function confirmReject() {
+    if (!rejectTarget) return;
+
+    const finalReason =
+      rejectReason === "其他"
+        ? customRejectReason.trim() || "其他原因"
+        : rejectReason;
+
+    await changeStatus(rejectTarget.firebaseId, "REJECTED", finalReason);
+
+    setRejectTarget(null);
+    setRejectReason("照片模糊");
+    setCustomRejectReason("");
   }
 
   useEffect(() => {
@@ -101,6 +136,44 @@ function App() {
         <div>已拒絕：{cases.filter((x) => (x.status || "").trim().toUpperCase() === "REJECTED").length}</div>
       </div>
 
+      {rejectTarget ? (
+        <div className="modalMask">
+          <div className="modal">
+            <h2>拒絕案件</h2>
+            <p className="caseId">{rejectTarget.id || rejectTarget.firebaseId}</p>
+
+            <label>拒絕原因</label>
+            <select
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+            >
+              <option value="照片模糊">照片模糊</option>
+              <option value="資料不足">資料不足</option>
+              <option value="重複案件">重複案件</option>
+              <option value="無法驗證">無法驗證</option>
+              <option value="其他">其他（手動輸入）</option>
+            </select>
+
+            {rejectReason === "其他" ? (
+              <textarea
+                value={customRejectReason}
+                onChange={(e) => setCustomRejectReason(e.target.value)}
+                placeholder="請輸入拒絕原因"
+              />
+            ) : null}
+
+            <div className="modalActions">
+              <button className="reject" onClick={confirmReject}>
+                確認拒絕
+              </button>
+              <button className="pending" onClick={() => setRejectTarget(null)}>
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {cases.map((item) => (
         <section className="card" key={item.firebaseId}>
           <div className="top">
@@ -116,7 +189,7 @@ function App() {
               <button className="ok" onClick={() => changeStatus(item.firebaseId, "VERIFIED")}>
                 核准
               </button>
-              <button className="reject" onClick={() => changeStatus(item.firebaseId, "REJECTED")}>
+              <button className="reject" onClick={() => setRejectTarget(item)}>
                 拒絕
               </button>
               <button className="pending" onClick={() => changeStatus(item.firebaseId, "PENDING")}>

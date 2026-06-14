@@ -33,6 +33,9 @@ type RecordItem = {
   severity: Severity;
   riskScore: number;
   aiSummary: string;
+  reviewer?: string;
+  reviewedAt?: any;
+  reviewNote?: string;
   profileImageUrl?: string;
   plateImageUrl?: string;
 };
@@ -219,6 +222,9 @@ export default function App() {
           severity: item.severity || "MEDIUM",
           riskScore: item.riskScore || 50,
           aiSummary: item.aiSummary || "尚無 AI 分析",
+          reviewer: item.reviewer,
+          reviewedAt: item.reviewedAt,
+          reviewNote: item.reviewNote,
           profileImageUrl: item.profileImageUrl,
           plateImageUrl: item.plateImageUrl,
         })) as RecordItem[];
@@ -424,6 +430,9 @@ export default function App() {
       severity,
       riskScore: score,
       aiSummary: generateAiRiskSummary(reportType, reportNote, severity),
+      reviewer: "",
+      reviewedAt: null,
+      reviewNote: "",
       profileImageUrl: profileImageUrl || "",
       plateImageUrl: plateImageUrl || "",
     };
@@ -644,6 +653,20 @@ export default function App() {
                 <Text style={styles.detailLine}>嚴重程度：{severityText(selected.severity)}</Text>
                 <Text style={styles.detailLine}>審核狀態：{statusText(selected.status)}</Text>
                 <Text style={styles.detailLine}>證據狀態：{selected.evidence}</Text>
+                {selected.reviewer ? (
+                  <Text style={styles.detailLine}>審核人員：{selected.reviewer}</Text>
+                ) : null}
+                {selected.reviewedAt ? (
+                  <Text style={styles.detailLine}>
+                    審核時間：
+                    {selected.reviewedAt?.toDate
+                      ? selected.reviewedAt.toDate().toLocaleString("zh-TW")
+                      : ""}
+                  </Text>
+                ) : null}
+                {selected.reviewNote ? (
+                  <Text style={styles.detailLine}>審核備註：{selected.reviewNote}</Text>
+                ) : null}
 
                 {selected.profileImageUrl ? (
                   <>
