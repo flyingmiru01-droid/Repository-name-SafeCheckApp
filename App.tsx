@@ -290,8 +290,8 @@ export default function App() {
       severity,
       riskScore: score,
       aiSummary: generateAiRiskSummary(reportType, reportNote, severity),
-      profileImageUrl: "",
-      plateImageUrl: "",
+      profileImageUrl: profileImageUrl || "",
+      plateImageUrl: plateImageUrl || "",
     };
 
     try {
