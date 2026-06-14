@@ -21,7 +21,7 @@ import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-si
 
 type Status = "PENDING" | "REVIEWING" | "VERIFIED" | "REJECTED";
 type Severity = "LOW" | "MEDIUM" | "HIGH";
-type Tab = "search" | "history" | "home" | "report" | "login";
+type Tab = "search" | "history" | "home" | "mycases" | "report" | "login";
 
 type RecordItem = {
   id: string;
@@ -41,6 +41,8 @@ type RecordItem = {
   reviewNote?: string;
   profileImageUrl?: string;
   plateImageUrl?: string;
+  uid?: string;
+  email?: string;
 };
 
 type PlateGroup = {
@@ -193,7 +195,7 @@ export default function App() {
 
   const [viewerVisible, setViewerVisible] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
-  const [user, setUser] = useState<{ email: string } | null>(null);
+  const [user, setUser] = useState<{ uid?: string; email?: string | null } | null>(null);
 
   const isAdmin = user?.email === ADMIN_EMAIL;
 
@@ -497,6 +499,8 @@ export default function App() {
       reviewNote: "",
       profileImageUrl: profileImageUrl || "",
       plateImageUrl: plateImageUrl || "",
+      uid: firebase.auth().currentUser?.uid || "",
+      email: firebase.auth().currentUser?.email || "",
     };
 
     try {
@@ -893,6 +897,24 @@ export default function App() {
           </View>
         )}
 
+        {tab === "mycases" && (
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>我的案件</Text>
+
+            {!user && (
+              <Text style={styles.emptyText}>請先登入 Google，才能查看自己的建檔紀錄。</Text>
+            )}
+
+            {user && records.filter((item) => item.uid === user.uid || item.email === user.email).length === 0 && (
+              <Text style={styles.emptyText}>目前沒有你的案件紀錄。</Text>
+            )}
+
+            {user && records
+              .filter((item) => item.uid === user.uid || item.email === user.email)
+              .map((item) => <CaseCard key={item.id} item={item} />)}
+          </View>
+        )}
+
         {tab === "home" && (
           <View style={styles.card}>
             <Text style={styles.cardTitle}>系統狀態</Text>
@@ -1011,10 +1033,10 @@ export default function App() {
         </View>
 
         <View style={styles.bottomNav}>
-          {(["search", "history", "home", "report", "login"] as Tab[]).map((t) => (
+          {(["search", "history", "home", "mycases", "report", "login"] as Tab[]).map((t) => (
             <Pressable key={t} style={styles.navItem} onPress={() => setTab(t)}>
               <Text style={[styles.navText, tab === t && styles.navActive]}>
-                {t === "search" ? "查詢" : t === "history" ? "紀錄" : t === "home" ? "狀態" : t === "report" ? "建檔" : "登入"}
+                {t === "search" ? "查詢" : t === "history" ? "紀錄" : t === "home" ? "狀態" : t === "mycases" ? "我的" : t === "report" ? "建檔" : "登入"}
               </Text>
             </Pressable>
           ))}
