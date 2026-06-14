@@ -397,6 +397,12 @@ export default function App() {
       plateGroup.reduce((sum, item) => sum + item.riskScore, 0) /
       Math.max(1, plateGroup.length);
 
+    const isHighRiskVehicle =
+      plateGroup.length >= 3 || verifiedCount >= 2 || avgRisk >= 80;
+
+    const isCriticalVehicle =
+      (plateGroup.length >= 5 && avgRisk >= 80) || avgRisk >= 90;
+
     return (
       <SafeAreaView style={styles.safe}>
         <ScrollView contentContainerStyle={styles.container}>
@@ -438,6 +444,18 @@ export default function App() {
               <Text style={styles.detailLine}>待查證：{pendingCount}</Text>
               <Text style={styles.detailLine}>平均風險：{Math.round(avgRisk)}</Text>
             </View>
+
+            {isHighRiskVehicle && (
+              <View style={styles.alertBox}>
+                <Text style={styles.alertTitle}>
+                  {isCriticalVehicle ? "🚨 極高風險車輛" : "⚠ 高風險車輛"}
+                </Text>
+
+                <Text style={styles.alertText}>
+                  此車牌已有多筆歷史紀錄，請提高警覺。
+                </Text>
+              </View>
+            )}
 
             <View style={styles.timelineBox}>
               <Text style={styles.sectionTitle}>歷史紀錄</Text>
@@ -717,6 +735,29 @@ const styles = StyleSheet.create({
   limitedText: { color: "#FFF0B8", fontWeight: "800", lineHeight: 22, marginTop: 8 },
   historyBox: { borderWidth: 1, borderColor: "#FFD166", borderRadius: 16, padding: 14, marginVertical: 14 },
   sectionTitle: { color: "#19FF7A", fontSize: 16, fontWeight: "900", marginBottom: 10, letterSpacing: 1 },
+
+
+  alertBox: {
+    backgroundColor: "#270009",
+    borderWidth: 1,
+    borderColor: "#FF4D6D",
+    borderRadius: 16,
+    padding: 14,
+    marginVertical: 14,
+  },
+
+  alertTitle: {
+    color: "#FF4D6D",
+    fontWeight: "900",
+    fontSize: 17,
+    marginBottom: 8,
+  },
+
+  alertText: {
+    color: "#FFD6DF",
+    fontWeight: "800",
+    lineHeight: 22,
+  },
 
   timelineBox: {
     backgroundColor: "#07110B",
