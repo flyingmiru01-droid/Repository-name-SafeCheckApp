@@ -309,6 +309,7 @@ export default function App() {
   }
 
   function openImage(uri: string) {
+    console.log("開啟圖片預覽", uri);
     setViewerImages([{ uri }]);
     setViewerIndex(0);
     setViewerVisible(true);
@@ -417,6 +418,13 @@ export default function App() {
   }
 
   if (selected) {
+    console.log("DETAIL SELECTED", {
+      id: selected.id,
+      status: selected.status,
+      profileImageUrl: selected.profileImageUrl,
+      plateImageUrl: selected.plateImageUrl,
+    });
+
     const plateGroup = records.filter(
       (item) => normalizePlate(item.plate) === normalizePlate(selected.plate)
     );
@@ -520,15 +528,21 @@ export default function App() {
                 <Text style={styles.detailLine}>證據狀態：{selected.evidence}</Text>
 
                 {selected.profileImageUrl ? (
-                  <Pressable onPress={() => openImage(selected.profileImageUrl!)}>
-                    <Image source={{ uri: selected.profileImageUrl }} style={styles.detailImage} />
-                  </Pressable>
+                  <>
+                    <Text style={styles.imageLabel}>人物照片</Text>
+                    <Pressable onPress={() => openImage(selected.profileImageUrl!)}>
+                      <Image source={{ uri: selected.profileImageUrl }} style={styles.detailImage} />
+                    </Pressable>
+                  </>
                 ) : null}
 
                 {selected.plateImageUrl ? (
-                  <Pressable onPress={() => openImage(selected.plateImageUrl!)}>
-                    <Image source={{ uri: selected.plateImageUrl }} style={styles.detailImage} />
-                  </Pressable>
+                  <>
+                    <Text style={styles.imageLabel}>車牌照片</Text>
+                    <Pressable onPress={() => openImage(selected.plateImageUrl!)}>
+                      <Image source={{ uri: selected.plateImageUrl }} style={styles.detailImage} />
+                    </Pressable>
+                  </>
                 ) : null}
 
                 <View style={styles.noteBox}>
@@ -844,6 +858,7 @@ const styles = StyleSheet.create({
   dangerText: { color: "#FF4D6D", fontWeight: "900" },
   previewText: { color: "#3F6F4E", fontSize: 12, fontWeight: "800", marginTop: -6, marginBottom: 12 },
   previewImage: { width: "100%", height: 180, borderRadius: 14, borderWidth: 1, borderColor: "#19FF7A", marginBottom: 14, backgroundColor: "#000" },
+  imageLabel: { color: "#19FF7A", fontWeight: "900", fontSize: 13, marginTop: 8, marginBottom: 8 },
   detailImage: { width: "100%", height: 220, borderRadius: 14, borderWidth: 1, borderColor: "#19FF7A", marginBottom: 14, backgroundColor: "#000" },
 
 

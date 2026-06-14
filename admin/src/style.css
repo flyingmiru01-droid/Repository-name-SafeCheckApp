@@ -1,0 +1,156 @@
+body {
+  margin: 0;
+  background: #020403;
+  color: #e9fff1;
+  font-family: -apple-system, BlinkMacSystemFont, "Noto Sans TC", sans-serif;
+}
+
+.page {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 28px;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: center;
+  border: 1px solid #19ff7a;
+  background: #06130b;
+  padding: 22px;
+  border-radius: 20px;
+  margin-bottom: 18px;
+}
+
+.system {
+  color: #19ff7a;
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 1.4px;
+}
+
+h1 {
+  margin: 8px 0;
+  font-size: 36px;
+}
+
+button {
+  cursor: pointer;
+  border: 1px solid #19ff7a;
+  background: #19ff7a;
+  color: #001f0d;
+  font-weight: 900;
+  padding: 11px 16px;
+  border-radius: 12px;
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.summary div {
+  background: #06130b;
+  border: 1px solid #137c3b;
+  padding: 16px;
+  border-radius: 16px;
+  color: #79ffb2;
+  font-weight: 900;
+}
+
+.card {
+  border: 1px solid #137c3b;
+  background: #06130b;
+  border-radius: 20px;
+  padding: 20px;
+  margin-bottom: 18px;
+}
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  border-bottom: 1px solid #163d25;
+  padding-bottom: 14px;
+}
+
+.caseId {
+  color: #79ffb2;
+  font-weight: 900;
+}
+
+h2 {
+  color: #19ff7a;
+  font-size: 28px;
+  margin: 6px 0;
+}
+
+.meta {
+  color: #ffd166;
+  font-weight: 900;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.reject {
+  background: #ff4d6d;
+  border-color: #ff4d6d;
+  color: #fff;
+}
+
+.pending {
+  background: transparent;
+  color: #ffd166;
+  border-color: #ffd166;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  color: #c8ffd9;
+  margin-top: 14px;
+}
+
+.note {
+  background: #030a06;
+  border: 1px solid #163d25;
+  border-radius: 14px;
+  padding: 14px;
+  margin-top: 14px;
+  white-space: pre-wrap;
+}
+
+.note b {
+  color: #19ff7a;
+}
+
+.images {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(260px, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.images a {
+  color: #19ff7a;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.images img {
+  margin-top: 8px;
+  width: 100%;
+  height: 260px;
+  object-fit: cover;
+  border-radius: 16px;
+  border: 1px solid #19ff7a;
+  background: #000;
+}
