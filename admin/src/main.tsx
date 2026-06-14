@@ -61,6 +61,7 @@ function severityText(severity?: string) {
 function App() {
   const [cases, setCases] = useState<CaseItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [tab, setTab] = useState<"cases" | "reviews">("cases");
   const [rejectTarget, setRejectTarget] = useState<CaseItem | null>(null);
   const [rejectReason, setRejectReason] = useState("照片模糊");
   const [customRejectReason, setCustomRejectReason] = useState("");
@@ -118,6 +119,25 @@ function App() {
     loadCases();
   }, []);
 
+  const reviewLogs = cases
+    .filter((item) => item.reviewedAt || item.reviewer || item.reviewNote)
+    .map((item) => {
+      const reviewedAt: any = item.reviewedAt as any;
+      const time =
+        reviewedAt?.toDate
+          ? reviewedAt.toDate().toLocaleString("zh-TW")
+          : "未提供時間";
+
+      return {
+        id: item.id || item.firebaseId,
+        plate: item.plate || "未提供",
+        reviewer: item.reviewer || "Admin",
+        status: statusText(item.status),
+        note: item.reviewNote || "無備註",
+        time,
+      };
+    });
+
   return (
     <div className="page">
       <header>
@@ -129,12 +149,65 @@ function App() {
         <button onClick={loadCases}>{loading ? "載入中..." : "重新整理"}</button>
       </header>
 
+      <nav className="adminTabs">
+        <button
+          className={tab === "cases" ? "tabActive" : ""}
+          onClick={() => setTab("cases")}
+        >
+          案件審核
+        </button>
+        <button
+          className={tab === "reviews" ? "tabActive" : ""}
+          onClick={() => setTab("reviews")}
+        >
+          審核紀錄
+        </button>
+      </nav>
+
+      {tab === "cases" ? (
+        <>
       <div className="summary">
         <div>總案件：{cases.length}</div>
         <div>待查證：{cases.filter((x) => (x.status || "").trim().toUpperCase() === "PENDING").length}</div>
         <div>已驗證：{cases.filter((x) => (x.status || "").trim().toUpperCase() === "VERIFIED").length}</div>
         <div>已拒絕：{cases.filter((x) => (x.status || "").trim().toUpperCase() === "REJECTED").length}</div>
       </div>
+
+        </>
+      ) : null}
+
+      {tab === "reviews" ? (
+      <section className="reviewPanel">
+        <div className="reviewHeader">
+          <div>
+            <p className="system">AUDIT TRAIL</p>
+            <h2>審核紀錄</h2>
+          </div>
+          <span>共 {reviewLogs.length} 筆</span>
+        </div>
+
+        {reviewLogs.length === 0 ? (
+          <p className="emptyReview">目前尚無審核紀錄。</p>
+        ) : (
+          <div className="reviewList">
+            {reviewLogs.map((log) => (
+              <div className="reviewItem" key={`${log.id}-${log.time}`}>
+                <div>
+                  <b>{log.status}</b>
+                  <p>{log.id}｜車號 {log.plate}</p>
+                </div>
+                <div>
+                  <p>{log.reviewer}</p>
+                  <small>{log.time}</small>
+                </div>
+                <div className="reviewNote">{log.note}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      ) : null}
 
       {rejectTarget ? (
         <div className="modalMask">
