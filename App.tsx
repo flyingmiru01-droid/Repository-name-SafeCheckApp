@@ -37,7 +37,7 @@ type RecordItem = {
   plateImageUrl?: string;
 };
 
-const STORAGE_KEY = "SAFE_CHECK_RECORDS_V3";
+const STORAGE_KEY = "SAFE_CHECK_RECORDS_V4";
 const HISTORY_KEY = "SAFE_CHECK_HISTORY_V3";
 
 const demoRecords: RecordItem[] = [
@@ -142,6 +142,11 @@ export default function App() {
   async function loadRecords() {
     try {
       const cloudCases = await getCases();
+      console.log("Firebase cases loaded", cloudCases.map((x: any) => ({
+        id: x.id,
+        plate: x.plate,
+        status: x.status,
+      })));
 
       if (cloudCases.length > 0) {
         const mapped = cloudCases.map((item: any) => ({
@@ -151,7 +156,7 @@ export default function App() {
           type: item.type || "未分類",
           area: item.area || "未知地區",
           date: item.date || "未提供",
-          status: item.status || "PENDING",
+          status: (item.status || "PENDING").trim(),
           evidence: item.evidence || "未提供",
           note: item.note || "未填寫",
           severity: item.severity || "MEDIUM",
