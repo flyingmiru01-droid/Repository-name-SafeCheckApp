@@ -1,0 +1,31 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && request.auth.token.email == "flyingmiru01@gmail.com";
+    }
+
+    match /profileImages/{fileName} {
+      allow read: if true;
+      allow write: if signedIn();
+      allow delete: if isAdmin();
+    }
+
+    match /plateImages/{fileName} {
+      allow read: if true;
+      allow write: if signedIn();
+      allow delete: if isAdmin();
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if isAdmin();
+    }
+  }
+}
