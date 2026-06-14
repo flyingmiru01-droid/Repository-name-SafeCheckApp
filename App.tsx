@@ -108,6 +108,32 @@ function generateAiRiskSummary(type: string, note: string, severity: Severity) {
     : "AI 初步分析：目前僅保留安全提醒層級。";
 }
 
+
+
+function severityText(level: string) {
+  switch ((level || "").trim()) {
+    case "LOW":
+      return "低風險";
+    case "MEDIUM":
+      return "中風險";
+    case "HIGH":
+      return "高風險";
+    default:
+      return level || "未知";
+  }
+}
+
+function statusText(status: string) {
+  switch ((status || "").trim()) {
+    case "VERIFIED":
+      return "已驗證";
+    case "PENDING":
+      return "待查證";
+    default:
+      return status || "未知";
+  }
+}
+
 export default function App() {
   const [tab, setTab] = useState<Tab>("search");
   const [records, setRecords] = useState<RecordItem[]>([]);
@@ -329,7 +355,7 @@ export default function App() {
     setHasSearched(true);
     setTab("search");
 
-    Alert.alert("資料已建立", "資料已加入本機查詢庫，狀態為 PENDING。");
+    Alert.alert("資料已建立", "資料已加入本機查詢庫，狀態為待查證。");
   }
 
   function CaseCard({ item }: { item: RecordItem }) {
@@ -340,7 +366,7 @@ export default function App() {
         <View style={styles.recordTop}>
           <Text style={styles.recordId}>{item.id}</Text>
           <View style={styles.riskBadge}>
-            <Text style={styles.riskText}>RISK {riskLabel(item.riskScore)}</Text>
+            <Text style={styles.riskText}>{riskLabel(item.riskScore) === "HIGH" ? "高風險" : riskLabel(item.riskScore) === "MEDIUM" ? "中風險" : "低風險"}</Text>
           </View>
         </View>
 
@@ -350,12 +376,12 @@ export default function App() {
         </Text>
 
         <View style={styles.grid}>
-          <Text style={styles.gridText}>狀態：{item.status}</Text>
+          <Text style={styles.gridText}>狀態：{statusText(item.status)}</Text>
           <Text style={styles.gridText}>分數：{item.riskScore}</Text>
           <Text style={styles.gridText}>資料性質：安全提醒參考</Text>
         </View>
 
-        <Text style={styles.tapHint}>TAP TO VIEW DETAIL</Text>
+        <Text style={styles.tapHint}>點擊查看事件描述</Text>
       </Pressable>
     );
   }
@@ -392,15 +418,15 @@ export default function App() {
 
             <View style={styles.bigRisk}>
               <Text style={styles.bigRiskText}>
-                RISK {riskLabel(selected.riskScore)} / SCORE {selected.riskScore}
+                {riskLabel(selected.riskScore) === "HIGH" ? "高風險" : riskLabel(selected.riskScore) === "MEDIUM" ? "中風險" : "低風險"} / 分數 {selected.riskScore}
               </Text>
             </View>
 
             {!canViewFullDetail && (
               <View style={styles.limitedBox}>
-                <Text style={styles.limitedTitle}>LIMITED PUBLIC VIEW</Text>
+                <Text style={styles.limitedTitle}>公開摘要模式</Text>
                 <Text style={styles.limitedText}>
-                  本資料尚未 VERIFIED，僅顯示安全提醒與基本資訊。
+                  本資料尚未完成驗證，僅顯示安全提醒與基本資訊。
                 </Text>
               </View>
             )}
@@ -408,13 +434,13 @@ export default function App() {
             <View style={styles.historyBox}>
               <Text style={styles.sectionTitle}>PLATE HISTORY</Text>
               <Text style={styles.detailLine}>案件數：{plateGroup.length}</Text>
-              <Text style={styles.detailLine}>VERIFIED：{verifiedCount}</Text>
-              <Text style={styles.detailLine}>PENDING：{pendingCount}</Text>
+              <Text style={styles.detailLine}>已驗證：{verifiedCount}</Text>
+              <Text style={styles.detailLine}>待查證：{pendingCount}</Text>
               <Text style={styles.detailLine}>平均風險：{Math.round(avgRisk)}</Text>
             </View>
 
             <View style={styles.aiBox}>
-              <Text style={styles.sectionTitle}>AI RISK ANALYSIS</Text>
+              <Text style={styles.sectionTitle}>AI 風險分析</Text>
               <Text style={styles.aiText}>{selected.aiSummary}</Text>
             </View>
 
@@ -423,8 +449,8 @@ export default function App() {
                 <Text style={styles.detailLine}>事件類型：{selected.type}</Text>
                 <Text style={styles.detailLine}>事件地區：{selected.area}</Text>
                 <Text style={styles.detailLine}>建檔日期：{selected.date}</Text>
-                <Text style={styles.detailLine}>嚴重程度：{selected.severity}</Text>
-                <Text style={styles.detailLine}>審核狀態：{selected.status}</Text>
+                <Text style={styles.detailLine}>嚴重程度：{severityText(selected.severity)}</Text>
+                <Text style={styles.detailLine}>審核狀態：{statusText(selected.status)}</Text>
                 <Text style={styles.detailLine}>證據狀態：{selected.evidence}</Text>
 
                 {selected.profileImageUrl ? (
@@ -555,11 +581,11 @@ export default function App() {
           <View style={styles.card}>
             <Text style={styles.cardTitle}>系統狀態</Text>
             <Text style={styles.line}>DATABASE STATUS : LOCAL</Text>
-            <Text style={styles.line}>RISK ENGINE : ACTIVE</Text>
+            <Text style={styles.line}>AI 風險分析系統：運作中</Text>
             <Text style={styles.line}>SEARCH NODE : TAIWAN</Text>
             <Text style={styles.line}>RECORDS : {records.length}</Text>
             <Text style={styles.homeHint}>
-              手機端不提供管理員審核。PENDING / VERIFIED 請由電腦端資料庫管理。
+              手機端不提供管理員審核。待查證 / 已驗證 請由電腦端資料庫管理。
             </Text>
           </View>
         )}
@@ -581,33 +607,33 @@ export default function App() {
             <Text style={styles.label}>AREA</Text>
             <TextInput style={styles.input} value={reportArea} onChangeText={setReportArea} placeholder="地區" placeholderTextColor="#3F6F4E" />
 
-            <Text style={styles.label}>SEVERITY</Text>
+            <Text style={styles.label}>風險程度</Text>
             <View style={styles.switchRow}>
               {(["LOW", "MEDIUM", "HIGH"] as Severity[]).map((s) => (
                 <Pressable key={s} style={[styles.switchBtn, severity === s && styles.switchActive]} onPress={() => setSeverity(s)}>
-                  <Text style={styles.switchText}>{s}</Text>
+                  <Text style={styles.switchText}>{severityText(s)}</Text>
                 </Pressable>
               ))}
             </View>
 
             <Pressable style={styles.secondaryButton} onPress={() => pickImage("profile")}>
-              <Text style={styles.secondaryText}>選擇人物照片</Text>
+              <Text style={styles.secondaryText}>上傳人物照片</Text>
             </Pressable>
             {reportProfileImage ? <Image source={{ uri: reportProfileImage }} style={styles.previewImage} /> : null}
 
             <Pressable style={styles.secondaryButton} onPress={() => pickImage("plate")}>
-              <Text style={styles.secondaryText}>選擇車牌照片</Text>
+              <Text style={styles.secondaryText}>上傳車牌照片</Text>
             </Pressable>
             {reportPlateImage ? <Image source={{ uri: reportPlateImage }} style={styles.previewImage} /> : null}
 
-            <Text style={styles.label}>EVIDENCE</Text>
+            <Text style={styles.label}>證據資料</Text>
             <TextInput style={styles.input} value={reportEvidence} onChangeText={setReportEvidence} placeholder="例如 照片1張 / 截圖2張" placeholderTextColor="#3F6F4E" />
 
-            <Text style={styles.label}>DETAIL</Text>
+            <Text style={styles.label}>事件描述</Text>
             <TextInput style={[styles.input, styles.textarea]} value={reportNote} onChangeText={setReportNote} placeholder="描述事件經過" placeholderTextColor="#3F6F4E" multiline />
 
             <Pressable style={styles.button} onPress={submitReport}>
-              <Text style={styles.buttonText}>SAVE RECORD</Text>
+              <Text style={styles.buttonText}>建立紀錄</Text>
             </Pressable>
           </View>
         )}
