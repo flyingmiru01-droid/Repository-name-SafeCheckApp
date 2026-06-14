@@ -171,7 +171,7 @@ export default function App() {
   const [selected, setSelected] = useState<RecordItem | null>(null);
 
   const [keyword, setKeyword] = useState("");
-  const [searchType, setSearchType] = useState<"plate" | "name">("plate");
+  const [searchType, setSearchType] = useState<"plate" | "name">("name");
   const [hasSearched, setHasSearched] = useState(false);
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
 
@@ -489,7 +489,13 @@ export default function App() {
 
 
   function PlateGroupCard({ group }: { group: PlateGroup }) {
-    const item = group.best;
+    const item =
+      group.items.find(
+        (x) => x.status === "VERIFIED" && (x.profileImageUrl || x.plateImageUrl)
+      ) ||
+      group.items.find((x) => x.status === "VERIFIED") ||
+      group.best;
+
     const publicView = group.verifiedCount === 0;
 
     return (
@@ -690,7 +696,7 @@ export default function App() {
         <View style={styles.header}>
           <Text style={styles.system}>SAFE CHECK OS</Text>
           <Text style={styles.title}>SafeCheck</Text>
-          <Text style={styles.subtitle}>Plate・Name Lookup System</Text>
+          <Text style={styles.subtitle}>Name・Plate Lookup System</Text>
         </View>
 
         {tab === "search" && (
@@ -699,17 +705,17 @@ export default function App() {
 
             <View style={styles.switchRow}>
               <Pressable
-                style={[styles.switchBtn, searchType === "plate" && styles.switchActive]}
-                onPress={() => setSearchType("plate")}
-              >
-                <Text style={styles.switchText}>車號查詢</Text>
-              </Pressable>
-
-              <Pressable
                 style={[styles.switchBtn, searchType === "name" && styles.switchActive]}
                 onPress={() => setSearchType("name")}
               >
                 <Text style={styles.switchText}>姓名查詢</Text>
+              </Pressable>
+
+              <Pressable
+                style={[styles.switchBtn, searchType === "plate" && styles.switchActive]}
+                onPress={() => setSearchType("plate")}
+              >
+                <Text style={styles.switchText}>車號查詢</Text>
               </Pressable>
             </View>
 
@@ -720,7 +726,7 @@ export default function App() {
                 setKeyword(text);
                 setHasSearched(false);
               }}
-              placeholder={searchType === "plate" ? "輸入車號，例如 ABC-1234 / abc1234" : "輸入姓名"}
+              placeholder={searchType === "name" ? "輸入姓名，例如 王○明" : "輸入車號，例如 ABC-1234 / abc1234"}
               placeholderTextColor="#3F6F4E"
               autoCapitalize="characters"
             />
@@ -734,14 +740,14 @@ export default function App() {
               <Text style={styles.resultLine}>
                 NORMALIZED：{searchType === "plate" ? normalizePlate(keyword) || "NULL" : normalizeText(keyword) || "NULL"}
               </Text>
-              <Text style={styles.resultLine}>MATCH：{hasSearched ? groupedResults.length : "LOCKED"}</Text>
+              <Text style={styles.resultLine}>MATCH：{hasSearched ? results.length : "LOCKED"}</Text>
             </View>
 
             {hasSearched && results.length === 0 && (
               <Text style={styles.emptyText}>查無資料。</Text>
             )}
 
-            {hasSearched && groupedResults.map((group) => <PlateGroupCard key={group.plate} group={group} />)}
+            {hasSearched && results.map((item) => <CaseCard key={item.id} item={item} />)}
           </View>
         )}
 
