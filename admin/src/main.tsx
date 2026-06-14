@@ -65,6 +65,7 @@ function App() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [rejectTarget, setRejectTarget] = useState<CaseItem | null>(null);
+  const [editTarget, setEditTarget] = useState<any | null>(null);
   const [rejectReason, setRejectReason] = useState("照片模糊");
   const [customRejectReason, setCustomRejectReason] = useState("");
 
@@ -99,6 +100,25 @@ function App() {
           : "退回待查證"),
     });
 
+    await loadCases();
+  }
+
+  async function saveEdit() {
+    if (!editTarget) return;
+
+    await updateDoc(
+      doc(db, "cases", editTarget.firebaseId),
+      {
+        name: editTarget.name,
+        plate: editTarget.plate,
+        type: editTarget.type,
+        area: editTarget.area,
+        note: editTarget.note,
+        severity: editTarget.severity,
+      }
+    );
+
+    setEditTarget(null);
     await loadCases();
   }
 
@@ -251,6 +271,64 @@ function App() {
 
       ) : null}
 
+      {editTarget ? (
+        <div className="modalMask">
+          <div className="modal">
+            <h2>編輯案件</h2>
+            <p className="caseId">{editTarget.id || editTarget.firebaseId}</p>
+
+            <label>姓名</label>
+            <input
+              value={editTarget.name || ""}
+              onChange={(e) => setEditTarget({ ...editTarget, name: e.target.value })}
+            />
+
+            <label>車牌</label>
+            <input
+              value={editTarget.plate || ""}
+              onChange={(e) => setEditTarget({ ...editTarget, plate: e.target.value })}
+            />
+
+            <label>事件類型</label>
+            <input
+              value={editTarget.type || ""}
+              onChange={(e) => setEditTarget({ ...editTarget, type: e.target.value })}
+            />
+
+            <label>地區</label>
+            <input
+              value={editTarget.area || ""}
+              onChange={(e) => setEditTarget({ ...editTarget, area: e.target.value })}
+            />
+
+            <label>嚴重程度</label>
+            <select
+              value={editTarget.severity || "MEDIUM"}
+              onChange={(e) => setEditTarget({ ...editTarget, severity: e.target.value })}
+            >
+              <option value="LOW">低風險</option>
+              <option value="MEDIUM">中風險</option>
+              <option value="HIGH">高風險</option>
+            </select>
+
+            <label>事件備註</label>
+            <textarea
+              value={editTarget.note || ""}
+              onChange={(e) => setEditTarget({ ...editTarget, note: e.target.value })}
+            />
+
+            <div className="modalActions">
+              <button className="ok" onClick={saveEdit}>
+                儲存修改
+              </button>
+              <button className="pending" onClick={() => setEditTarget(null)}>
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {rejectTarget ? (
         <div className="modalMask">
           <div className="modal">
@@ -289,8 +367,10 @@ function App() {
         </div>
       ) : null}
 
-      {filteredCases.map((item) => (
-        <section className="card" key={item.firebaseId}>
+      {tab === "cases" ? (
+        <>
+          {filteredCases.map((item) => (
+            <section className="card" key={item.firebaseId}>
           <div className="top">
             <div>
               <p className="caseId">{item.id || item.firebaseId}</p>
@@ -301,6 +381,10 @@ function App() {
             </div>
 
             <div className="actions">
+              <button className="edit" onClick={() => setEditTarget({...item})}>
+                編輯
+              </button>
+
               <button className="ok" onClick={() => changeStatus(item.firebaseId, "VERIFIED")}>
                 核准
               </button>
@@ -347,8 +431,10 @@ function App() {
               </a>
             ) : null}
           </div>
-        </section>
-      ))}
+            </section>
+          ))}
+        </>
+      ) : null}
     </div>
   );
 }
