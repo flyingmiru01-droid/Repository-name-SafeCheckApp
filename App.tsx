@@ -193,6 +193,11 @@ export default function App() {
   const [reportProfileImage, setReportProfileImage] = useState("");
   const [reportPlateImage, setReportPlateImage] = useState("");
 
+  const [editingCaseId, setEditingCaseId] = useState("");
+  const [editEvidence, setEditEvidence] = useState("");
+  const [editNote, setEditNote] = useState("");
+  const [editSeverity, setEditSeverity] = useState<Severity>("MEDIUM");
+
   const [viewerVisible, setViewerVisible] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
   const [user, setUser] = useState<{ uid?: string; email?: string | null } | null>(null);
@@ -284,6 +289,8 @@ export default function App() {
           reviewNote: item.reviewNote,
           profileImageUrl: item.profileImageUrl,
           plateImageUrl: item.plateImageUrl,
+          uid: item.uid,
+          email: item.email,
         })) as RecordItem[];
 
         setRecords(mapped);
@@ -453,6 +460,53 @@ export default function App() {
     setViewerImages([{ uri }]);
     setViewerIndex(0);
     setViewerVisible(true);
+  }
+
+  function startEditMyCase(item: RecordItem) {
+    const currentUser = firebase.auth().currentUser;
+    const canEdit = isAdmin || item.uid === currentUser?.uid || item.email === currentUser?.email;
+
+    if (!canEdit) {
+      Alert.alert("無權限", "你只能編輯自己建立的案件。");
+      return;
+    }
+
+    setEditingCaseId(item.id);
+    setEditEvidence(item.evidence || "");
+    setEditNote(item.note || "");
+    setEditSeverity(item.severity || "MEDIUM");
+  }
+
+  async function saveEditMyCase(item: RecordItem) {
+    const currentUser = firebase.auth().currentUser;
+    const canEdit = isAdmin || item.uid === currentUser?.uid || item.email === currentUser?.email;
+
+    if (!canEdit) {
+      Alert.alert("無權限", "你只能編輯自己建立的案件。");
+      return;
+    }
+
+    const nextRecord: RecordItem = {
+      ...item,
+      evidence: editEvidence.trim() || "未提供",
+      note: editNote.trim() || "未填寫",
+      severity: editSeverity,
+      riskScore: calcRisk(item.type, editNote, editSeverity),
+      aiSummary: generateAiRiskSummary(item.type, editNote, editSeverity),
+    };
+
+    const next = records.map((r) => (r.id === item.id ? nextRecord : r));
+    await saveRecords(next);
+    setSelected((prev) => (prev?.id === item.id ? nextRecord : prev));
+
+    try {
+      await db.collection("cases").doc(item.id).set(nextRecord, { merge: true });
+    } catch (e) {
+      console.log("Firebase 編輯同步失敗，已更新本機", e);
+    }
+
+    setEditingCaseId("");
+    Alert.alert("已更新", "我的案件已更新。");
   }
 
   async function submitReport() {
@@ -911,7 +965,61 @@ export default function App() {
 
             {user && records
               .filter((item) => item.uid === firebase.auth().currentUser?.uid || item.email === firebase.auth().currentUser?.email)
-              .map((item) => <CaseCard key={item.id} item={item} />)}
+              .map((item) => (
+                <View key={item.id}>
+                  <CaseCard item={item} />
+
+                  {editingCaseId === item.id ? (
+                    <View style={styles.noteBox}>
+                      <Text style={styles.sectionTitle}>編輯我的案件</Text>
+
+                      <Text style={styles.label}>證據資料</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={editEvidence}
+                        onChangeText={setEditEvidence}
+                        placeholder="更新證據資料"
+                        placeholderTextColor="#3F6F4E"
+                      />
+
+                      <Text style={styles.label}>事件描述</Text>
+                      <TextInput
+                        style={[styles.input, styles.textarea]}
+                        value={editNote}
+                        onChangeText={setEditNote}
+                        placeholder="更新事件描述"
+                        placeholderTextColor="#3F6F4E"
+                        multiline
+                      />
+
+                      <Text style={styles.label}>風險程度</Text>
+                      <View style={styles.switchRow}>
+                        {(["LOW", "MEDIUM", "HIGH"] as Severity[]).map((s) => (
+                          <Pressable
+                            key={s}
+                            style={[styles.switchBtn, editSeverity === s && styles.switchActive]}
+                            onPress={() => setEditSeverity(s)}
+                          >
+                            <Text style={styles.switchText}>{severityText(s)}</Text>
+                          </Pressable>
+                        ))}
+                      </View>
+
+                      <Pressable style={styles.button} onPress={() => saveEditMyCase(item)}>
+                        <Text style={styles.buttonText}>儲存修改</Text>
+                      </Pressable>
+
+                      <Pressable style={styles.secondaryButton} onPress={() => setEditingCaseId("")}>
+                        <Text style={styles.secondaryText}>取消編輯</Text>
+                      </Pressable>
+                    </View>
+                  ) : (
+                    <Pressable style={styles.secondaryButton} onPress={() => startEditMyCase(item)}>
+                      <Text style={styles.secondaryText}>編輯我的案件</Text>
+                    </Pressable>
+                  )}
+                </View>
+              ))}
           </View>
         )}
 
