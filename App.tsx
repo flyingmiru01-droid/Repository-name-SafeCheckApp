@@ -1,4 +1,4 @@
-import firebase from "./lib/firebase";
+import firebase, { db, auth, storage } from "./lib/firebase";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -225,6 +225,10 @@ export default function App() {
       const credential = firebase.auth.GoogleAuthProvider.credential(idToken);
       const firebaseUser = await firebase.auth().signInWithCredential(credential);
       console.log("REAL FIREBASE LOGIN", firebaseUser.user?.email, "uid:", firebaseUser.user?.uid);
+
+      // users collection 寫入先關閉，避免 Firestore rules 擋住 Google 登入
+      // 登入成功已由 firebase.auth().signInWithCredential 完成
+
     } catch (error: any) {
       if (error?.code === statusCodes.SIGN_IN_CANCELLED) return;
       console.log("Google login error", error);
