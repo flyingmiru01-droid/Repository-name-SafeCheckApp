@@ -240,3 +240,14 @@ h2 {
   font-size: 15px;
   margin-bottom: 10px;
 }
+
+.modal input {
+  width: 100%;
+  box-sizing: border-box;
+  background: #020403;
+  border: 1px solid #137c3b;
+  border-radius: 12px;
+  color: #E9FFF1;
+  padding: 12px;
+  margin-bottom: 10px;
+}
