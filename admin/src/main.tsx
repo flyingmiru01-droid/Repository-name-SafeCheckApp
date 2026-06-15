@@ -1,17 +1,7 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { initializeApp } from "firebase/app";
-import {
-  getFirestore,
-  collection,
-  getDocs,
-  getDoc,
-  updateDoc,
-  doc,
-  query,
-  orderBy,
-  serverTimestamp,
-} from "firebase/firestore";
+import { collection, deleteDoc, doc, getDoc, getDocs, getFirestore, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore";
 import "./style.css";
 
 const firebaseConfig = {
@@ -193,18 +183,33 @@ function App() {
   }
 
   async function confirmReject() {
-    if (!rejectTarget) return;
+    try {
+      alert("開始刪除案件");
 
-    const finalReason =
-      rejectReason === "其他"
-        ? customRejectReason.trim() || "其他原因"
-        : rejectReason;
+      if (!rejectTarget) {
+        alert("刪除失敗：rejectTarget 是空的");
+        return;
+      }
 
-    await changeStatus(rejectTarget.firebaseId, "REJECTED", finalReason);
+      const firebaseId = rejectTarget.firebaseId || rejectTarget.id;
 
-    setRejectTarget(null);
-    setRejectReason("照片模糊");
-    setCustomRejectReason("");
+      if (!firebaseId) {
+        alert("刪除失敗：找不到 Firebase 文件 ID");
+        return;
+      }
+
+      await deleteDoc(doc(db, "cases", firebaseId));
+
+      setCases((prev: CaseItem[]) =>
+        prev.filter((x: CaseItem) => (x.firebaseId || x.id) !== firebaseId)
+      );
+
+      setRejectTarget(null);
+      alert("已刪除案件");
+    } catch (err: any) {
+      console.error("confirmReject delete error:", err);
+      alert("刪除失敗：" + (err?.message || String(err)));
+    }
   }
 
   useEffect(() => {
@@ -528,9 +533,7 @@ function App() {
             ) : null}
 
             <div className="modalActions">
-              <button className="reject" onClick={confirmReject}>
-                確認拒絕
-              </button>
+              <button type="button" className="reject" onClick={confirmReject}>確認拒絕</button>
               <button className="pending" onClick={() => setRejectTarget(null)}>
                 取消
               </button>
