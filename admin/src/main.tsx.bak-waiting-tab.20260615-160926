@@ -1,6 +1,6 @@
-import { initializeApp } from "firebase/app";
-import { createRoot } from "react-dom/client";
 import { useEffect, useState } from "react";
+import { createRoot } from "react-dom/client";
+import { initializeApp } from "firebase/app";
 import { collection, deleteDoc, doc, getDoc, getDocs, getFirestore, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore";
 import "./style.css";
 
@@ -63,7 +63,7 @@ function severityText(severity?: string) {
 function App() {
   const [cases, setCases] = useState<CaseItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [tab, setTab] = useState<"cases" | "reviews" | "stats" | "plates" | "pending" | "verified">("cases");
+  const [tab, setTab] = useState<"cases" | "reviews" | "stats" | "plates">("cases");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [rejectTarget, setRejectTarget] = useState<CaseItem | null>(null);
@@ -195,16 +195,10 @@ function App() {
     });
 
     setCases((prev: CaseItem[]) =>
-      prev.map((x: CaseItem) =>
-        (x.firebaseId || x.id) === firebaseId
-          ? { ...x, status: "VERIFIED" }
-          : x
-      )
+      prev.filter((x: CaseItem) => (x.firebaseId || x.id) !== firebaseId)
     );
 
-    setSearch("");
-    setTab("verified");
-    alert("已核准，案件已移到已驗證案件");
+    alert("已核准，案件已從審核頁移除");
   }
 
   async function returnToPendingAndRemove(item: CaseItem) {
@@ -221,26 +215,23 @@ function App() {
     });
 
     setCases((prev: CaseItem[]) =>
-      prev.map((x: CaseItem) =>
-        (x.firebaseId || x.id) === firebaseId
-          ? { ...x, status: "PENDING", reviewNote: "退回待查" }
-          : x
-      )
+      prev.filter((x: CaseItem) => (x.firebaseId || x.id) !== firebaseId)
     );
 
-    setSearch("");
-    setTab("pending");
-    alert("已退回待查，案件已移到待查案件");
+    alert("已退回待查，案件已移到待查證");
   }
 
   async function confirmReject() {
     try {
+      alert("開始刪除案件");
+
       if (!rejectTarget) {
-        alert("刪除失敗：沒有選到案件");
+        alert("刪除失敗：rejectTarget 是空的");
         return;
       }
 
       const firebaseId = rejectTarget.firebaseId || rejectTarget.id;
+
       if (!firebaseId) {
         alert("刪除失敗：找不到 Firebase 文件 ID");
         return;
@@ -253,10 +244,10 @@ function App() {
       );
 
       setRejectTarget(null);
-      alert("已從 Firebase 刪除案件");
+      alert("已刪除案件");
     } catch (err: any) {
-      console.error(err);
-      alert("Firebase 刪除失敗：" + (err?.message || String(err)));
+      console.error("confirmReject delete error:", err);
+      alert("刪除失敗：" + (err?.message || String(err)));
     }
   }
 
@@ -284,24 +275,22 @@ function App() {
     });
 
 
-  const filteredCases = cases.filter((item: CaseItem) => {
+  const filteredCases = cases.filter((item) => {
     const keyword = search.trim().toLowerCase();
-    const status = String(item.status || "").trim().toUpperCase();
 
-    if ((tab as string) === "verified") {
-      if (status !== "VERIFIED") return false;
-    } else if ((tab as string) === "pending") {
-      if (status !== "PENDING") return false;
-    } else if ((tab as string) === "cases") {
-      if (status === "VERIFIED") return false;
-    }
-
-    return (
+    const matchSearch =
       !keyword ||
       String(item.name || "").toLowerCase().includes(keyword) ||
       String(item.plate || "").toLowerCase().includes(keyword) ||
-      String(item.id || "").toLowerCase().includes(keyword)
-    );
+      String(item.id || "").toLowerCase().includes(keyword);
+
+    const status = String(item.status || "").trim().toUpperCase();
+
+    const matchStatus =
+      statusFilter === "ALL" ||
+      status === statusFilter;
+
+    return matchSearch && matchStatus;
   });
 
   return (
@@ -314,9 +303,6 @@ function App() {
           <p>審核待查證案件、查看照片、核准或拒絕資料。</p>
         </div>
         <button onClick={loadCases}>{loading ? "載入中..." : "重新整理"}</button>
-        
-
-
       </header>
 
       <nav className="adminTabs">
@@ -344,28 +330,9 @@ function App() {
         >
           車牌歷史
         </button>
-
-        <button
-          className={tab === "pending" ? "tabActive" : ""}
-          onClick={() => {
-            setSearch("");
-            setTab("pending");
-          }}
-        >
-          待查案件
-        </button>
-              <button
-          className={tab === "verified" ? "tabActive" : ""}
-          onClick={() => {
-            setSearch("");
-            setTab("verified");
-          }}
-        >
-          已驗證案件
-        </button>
       </nav>
 
-      {["cases", "pending"].includes(tab) ? (
+      {tab === "cases" ? (
         <>
       
 <div className="filterBar">
@@ -614,9 +581,9 @@ function App() {
         </div>
       ) : null}
 
-      {(tab === "cases" || tab === "pending" || tab === "verified") ? (
+      {tab === "cases" ? (
         <>
-          {filteredCases.map((item: CaseItem) => (
+          {filteredCases.map((item) => (
             <section className="card" key={item.firebaseId}>
           <div className="top">
             <div>
@@ -632,7 +599,9 @@ function App() {
                 編輯
               </button>
 
-              <button className="ok" onClick={() => approveAndRemove(item)}>核准</button>
+              <button className="ok" onClick={() => changeStatus(item.firebaseId, "VERIFIED")}>
+                核准
+              </button>
               <button className="reject" onClick={() => setRejectTarget(item)}>
                 拒絕
               </button>

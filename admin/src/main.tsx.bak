@@ -1,7 +1,18 @@
-import { initializeApp } from "firebase/app";
+import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { useEffect, useState } from "react";
-import { collection, deleteDoc, doc, getDoc, getDocs, getFirestore, orderBy, query, serverTimestamp, updateDoc } from "firebase/firestore";
+import { initializeApp } from "firebase/app";
+import {
+  getFirestore,
+  collection,
+  getDocs,
+  getDoc,
+  addDoc,
+  updateDoc,
+  doc,
+  query,
+  orderBy,
+  serverTimestamp,
+} from "firebase/firestore";
 import "./style.css";
 
 const firebaseConfig = {
@@ -63,13 +74,23 @@ function severityText(severity?: string) {
 function App() {
   const [cases, setCases] = useState<CaseItem[]>([]);
   const [loading, setLoading] = useState(false);
-  const [tab, setTab] = useState<"cases" | "reviews" | "stats" | "plates" | "pending" | "verified">("cases");
+  const [tab, setTab] = useState<"cases" | "reviews" | "stats" | "plates">("cases");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [rejectTarget, setRejectTarget] = useState<CaseItem | null>(null);
   const [editTarget, setEditTarget] = useState<any | null>(null);
   const [rejectReason, setRejectReason] = useState("照片模糊");
   const [customRejectReason, setCustomRejectReason] = useState("");
+
+  async function addAuditLog(action: string, caseId: string, detail: string = "") {
+    await addDoc(collection(db, "auditLogs"), {
+      action,
+      caseId,
+      detail,
+      adminEmail: "flyingmiru01@gmail.com",
+      createdAt: serverTimestamp(),
+    });
+  }
 
   async function loadCases() {
     setLoading(true);
@@ -126,6 +147,17 @@ function App() {
     }
 
     await updateDoc(ref, updateData);
+
+    await addAuditLog(
+      pendingEdit && status === "VERIFIED"
+        ? "APPROVE_EDIT_BY_STATUS"
+        : pendingEdit && status === "REJECTED"
+        ? "REJECT_EDIT_BY_STATUS"
+        : status,
+      data.id || firebaseId,
+      updateData.reviewNote || ""
+    );
+
     await loadCases();
   }
 
@@ -146,6 +178,12 @@ function App() {
       reviewNote: "管理員已核准修改申請",
     });
 
+    await addAuditLog(
+      "APPROVE_EDIT",
+      item.id || item.firebaseId,
+      "核准修改申請"
+    );
+
     await loadCases();
   }
 
@@ -159,6 +197,12 @@ function App() {
       reviewedAt: serverTimestamp(),
       reviewNote: "管理員已拒絕修改申請，原內容維持不變",
     });
+
+    await addAuditLog(
+      "REJECT_EDIT",
+      item.id || item.firebaseId,
+      "拒絕修改申請"
+    );
 
     await loadCases();
   }
@@ -182,83 +226,29 @@ function App() {
     await loadCases();
   }
 
-  async function approveAndRemove(item: CaseItem) {
-    const firebaseId = item.firebaseId || item.id;
-    if (!firebaseId) {
-      alert("核准失敗：找不到 Firebase 文件 ID");
-      return;
-    }
-
-    await updateDoc(doc(db, "cases", firebaseId), {
-      status: "VERIFIED",
-      reviewedAt: serverTimestamp(),
-    });
-
-    setCases((prev: CaseItem[]) =>
-      prev.map((x: CaseItem) =>
-        (x.firebaseId || x.id) === firebaseId
-          ? { ...x, status: "VERIFIED" }
-          : x
-      )
-    );
-
-    setSearch("");
-    setTab("verified");
-    alert("已核准，案件已移到已驗證案件");
-  }
-
-  async function returnToPendingAndRemove(item: CaseItem) {
-    const firebaseId = item.firebaseId || item.id;
-    if (!firebaseId) {
-      alert("退回失敗：找不到 Firebase 文件 ID");
-      return;
-    }
-
-    await updateDoc(doc(db, "cases", firebaseId), {
-      status: "PENDING",
-      reviewedAt: serverTimestamp(),
-      reviewNote: "退回待查",
-    });
-
-    setCases((prev: CaseItem[]) =>
-      prev.map((x: CaseItem) =>
-        (x.firebaseId || x.id) === firebaseId
-          ? { ...x, status: "PENDING", reviewNote: "退回待查" }
-          : x
-      )
-    );
-
-    setSearch("");
-    setTab("pending");
-    alert("已退回待查，案件已移到待查案件");
-  }
-
   async function confirmReject() {
+    if (!rejectTarget) return;
+
+    const target = rejectTarget;
+    const finalReason =
+      rejectReason === "其他"
+        ? customRejectReason.trim() || "其他原因"
+        : rejectReason;
+
+    setRejectTarget(null);
+    setRejectReason("照片模糊");
+    setCustomRejectReason("");
+
     try {
-      if (!rejectTarget) {
-        alert("刪除失敗：沒有選到案件");
-        return;
-      }
-
-      const firebaseId = rejectTarget.firebaseId || rejectTarget.id;
-      if (!firebaseId) {
-        alert("刪除失敗：找不到 Firebase 文件 ID");
-        return;
-      }
-
-      await deleteDoc(doc(db, "cases", firebaseId));
-
-      setCases((prev: CaseItem[]) =>
-        prev.filter((x: CaseItem) => (x.firebaseId || x.id) !== firebaseId)
-      );
-
-      setRejectTarget(null);
-      alert("已從 Firebase 刪除案件");
-    } catch (err: any) {
-      console.error(err);
-      alert("Firebase 刪除失敗：" + (err?.message || String(err)));
+      console.log("confirmReject start", target.firebaseId, finalReason);
+      await changeStatus(target.firebaseId, "REJECTED", finalReason);
+      console.log("confirmReject success");
+    } catch (e: any) {
+      console.error("confirmReject error", e);
+      alert("拒絕失敗：" + (e?.message || String(e)));
     }
   }
+
 
   useEffect(() => {
     loadCases();
@@ -284,24 +274,22 @@ function App() {
     });
 
 
-  const filteredCases = cases.filter((item: CaseItem) => {
+  const filteredCases = cases.filter((item) => {
     const keyword = search.trim().toLowerCase();
-    const status = String(item.status || "").trim().toUpperCase();
 
-    if ((tab as string) === "verified") {
-      if (status !== "VERIFIED") return false;
-    } else if ((tab as string) === "pending") {
-      if (status !== "PENDING") return false;
-    } else if ((tab as string) === "cases") {
-      if (status === "VERIFIED") return false;
-    }
-
-    return (
+    const matchSearch =
       !keyword ||
       String(item.name || "").toLowerCase().includes(keyword) ||
       String(item.plate || "").toLowerCase().includes(keyword) ||
-      String(item.id || "").toLowerCase().includes(keyword)
-    );
+      String(item.id || "").toLowerCase().includes(keyword);
+
+    const status = String(item.status || "").trim().toUpperCase();
+
+    const matchStatus =
+      statusFilter === "ALL" ||
+      status === statusFilter;
+
+    return matchSearch && matchStatus;
   });
 
   return (
@@ -314,9 +302,6 @@ function App() {
           <p>審核待查證案件、查看照片、核准或拒絕資料。</p>
         </div>
         <button onClick={loadCases}>{loading ? "載入中..." : "重新整理"}</button>
-        
-
-
       </header>
 
       <nav className="adminTabs">
@@ -344,28 +329,9 @@ function App() {
         >
           車牌歷史
         </button>
-
-        <button
-          className={tab === "pending" ? "tabActive" : ""}
-          onClick={() => {
-            setSearch("");
-            setTab("pending");
-          }}
-        >
-          待查案件
-        </button>
-              <button
-          className={tab === "verified" ? "tabActive" : ""}
-          onClick={() => {
-            setSearch("");
-            setTab("verified");
-          }}
-        >
-          已驗證案件
-        </button>
       </nav>
 
-      {["cases", "pending"].includes(tab) ? (
+      {tab === "cases" ? (
         <>
       
 <div className="filterBar">
@@ -578,45 +544,9 @@ function App() {
         </div>
       ) : null}
 
-      {rejectTarget ? (
-        <div className="modalMask">
-          <div className="modal">
-            <h2>拒絕案件</h2>
-            <p className="caseId">{rejectTarget.id || rejectTarget.firebaseId}</p>
-
-            <label>拒絕原因</label>
-            <select
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-            >
-              <option value="照片模糊">照片模糊</option>
-              <option value="資料不足">資料不足</option>
-              <option value="重複案件">重複案件</option>
-              <option value="無法驗證">無法驗證</option>
-              <option value="其他">其他（手動輸入）</option>
-            </select>
-
-            {rejectReason === "其他" ? (
-              <textarea
-                value={customRejectReason}
-                onChange={(e) => setCustomRejectReason(e.target.value)}
-                placeholder="請輸入拒絕原因"
-              />
-            ) : null}
-
-            <div className="modalActions">
-              <button type="button" className="reject" onClick={confirmReject}>確認拒絕</button>
-              <button className="pending" onClick={() => setRejectTarget(null)}>
-                取消
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {(tab === "cases" || tab === "pending" || tab === "verified") ? (
+      {tab === "cases" ? (
         <>
-          {filteredCases.map((item: CaseItem) => (
+          {filteredCases.map((item) => (
             <section className="card" key={item.firebaseId}>
           <div className="top">
             <div>
@@ -632,11 +562,22 @@ function App() {
                 編輯
               </button>
 
-              <button className="ok" onClick={() => approveAndRemove(item)}>核准</button>
-              <button className="reject" onClick={() => setRejectTarget(item)}>
+              <button className="ok" onClick={() => changeStatus(item.firebaseId, "VERIFIED")}>
+                核准
+              </button>
+              <button
+                className="reject"
+                onClick={async () => {
+                  if (window.confirm("確定拒絕這個案件？")) {
+                    await changeStatus(item.firebaseId, "REJECTED", "照片模糊");
+                  }
+                }}
+              >
                 拒絕
               </button>
-              <button className="pending" onClick={() => returnToPendingAndRemove(item)}>退回待查</button>
+              <button className="pending" onClick={() => changeStatus(item.firebaseId, "PENDING")}>
+                退回待查
+              </button>
             </div>
           </div>
 
