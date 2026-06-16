@@ -1,6 +1,6 @@
 import firebase, { db, auth, storage } from "./lib/firebase";
 import React, { useEffect, useMemo, useState } from "react";
-import {
+import { Linking,
   Alert,
   Image,
   Pressable,
@@ -18,6 +18,8 @@ import { addCase, getCases } from "./lib/cases";
 import { uploadImageAsync } from "./lib/storage";
 import { googleConfig, ADMIN_EMAIL } from "./lib/googleAuth";
 import { GoogleSignin, statusCodes } from "@react-native-google-signin/google-signin";
+
+import * as Device from "expo-device";
 
 type Status = "PENDING" | "REVIEWING" | "VERIFIED" | "REJECTED";
 type Severity = "LOW" | "MEDIUM" | "HIGH";
@@ -41,8 +43,13 @@ type RecordItem = {
   reviewNote?: string;
   profileImageUrl?: string;
   plateImageUrl?: string;
+  courtUrl?: string;
+  newsUrl?: string;
   uid?: string;
   email?: string;
+  ip?: string;
+  device?: string;
+  os?: string;
   editStatus?: "NONE" | "REVIEWING";
   pendingEdit?: {
     evidence?: string;
@@ -181,7 +188,8 @@ function statusText(status: string) {
   }
 }
 
-export default function App() {
+export default 
+function App() {
   const [tab, setTab] = useState<Tab>("search");
   const [records, setRecords] = useState<RecordItem[]>([]);
   const [selected, setSelected] = useState<RecordItem | null>(null);
@@ -200,6 +208,7 @@ export default function App() {
   const [severity, setSeverity] = useState<Severity>("MEDIUM");
   const [reportProfileImage, setReportProfileImage] = useState("");
   const [reportPlateImage, setReportPlateImage] = useState("");
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
 
   const [editingCaseId, setEditingCaseId] = useState("");
   const [editEvidence, setEditEvidence] = useState("");
@@ -219,16 +228,51 @@ export default function App() {
     });
 
     const unsubscribe = firebase.auth().onAuthStateChanged((currentUser: any) => {
+      console.log("Firebase auth state", currentUser?.email || "none");
       setUser(currentUser);
     });
+
+    async function restoreGoogleLogin() {
+      try {
+        const firebaseUser = firebase.auth().currentUser;
+        if (firebaseUser) {
+          setUser(firebaseUser);
+          console.log("Firebase already logged in", firebaseUser.email);
+          return;
+        }
+
+        const hasPrevious = await GoogleSignin.hasPreviousSignIn();
+        console.log("Google hasPreviousSignIn", hasPrevious);
+
+        if (!hasPrevious) return;
+
+        await GoogleSignin.signInSilently();
+        const currentGoogleUser = GoogleSignin.getCurrentUser();
+        console.log("Google silent restored", currentGoogleUser?.user?.email || "none");
+
+        const tokens = await GoogleSignin.getTokens();
+        if (!tokens.idToken) {
+          console.log("No Google idToken");
+          return;
+        }
+
+        const credential = firebase.auth.GoogleAuthProvider.credential(tokens.idToken);
+        const result = await firebase.auth().signInWithCredential(credential);
+
+        setUser(result.user);
+        console.log("Firebase restored", result.user?.email || "none");
+      } catch (err) {
+        console.log("restoreGoogleLogin error", err);
+      }
+    }
+
+    restoreGoogleLogin();
 
     return unsubscribe;
   }, []);
 
   async function handleGoogleLogin() {
     try {
-      await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-
       const result: any = await GoogleSignin.signIn();
       const idToken = result?.idToken || result?.data?.idToken;
 
@@ -239,11 +283,9 @@ export default function App() {
 
       const credential = firebase.auth.GoogleAuthProvider.credential(idToken);
       const firebaseUser = await firebase.auth().signInWithCredential(credential);
-      console.log("REAL FIREBASE LOGIN", firebaseUser.user?.email, "uid:", firebaseUser.user?.uid);
 
-      // users collection 寫入先關閉，避免 Firestore rules 擋住 Google 登入
-      // 登入成功已由 firebase.auth().signInWithCredential 完成
-
+      setUser(firebaseUser.user);
+      Alert.alert("Google 登入成功", firebaseUser.user?.email || "已登入");
     } catch (error: any) {
       if (error?.code === statusCodes.SIGN_IN_CANCELLED) return;
       console.log("Google login error", error);
@@ -297,6 +339,8 @@ export default function App() {
           reviewNote: item.reviewNote,
           profileImageUrl: item.profileImageUrl,
           plateImageUrl: item.plateImageUrl,
+          courtUrl: item.courtUrl || "",
+          newsUrl: item.newsUrl || "",
           uid: item.uid,
           email: item.email,
           editStatus: item.editStatus || "NONE",
@@ -369,16 +413,22 @@ export default function App() {
   const results = useMemo(() => {
     if (!hasSearched) return [];
 
-    const key = searchType === "plate" ? normalizePlate(keyword) : normalizeText(keyword);
+    const key =
+      searchType === "plate"
+        ? normalizePlate(keyword)
+        : normalizeText(keyword);
 
     return records
       .filter((item) => {
-        const target =
-          searchType === "plate"
-            ? normalizePlate(item.plate)
-            : normalizeText(item.name);
+        if (searchType === "name") {
+          return normalizeText(item.name) === key;
+        }
 
-        return target.includes(key);
+        if (searchType === "plate") {
+          return normalizePlate(item.plate) === key;
+        }
+
+        return false;
       })
       .sort((a, b) => {
         if (a.status === "VERIFIED" && b.status !== "VERIFIED") return -1;
@@ -391,6 +441,21 @@ export default function App() {
         return String(b.date).localeCompare(String(a.date));
       });
   }, [hasSearched, keyword, records, searchType]);
+
+  useEffect(() => {
+    if (hasSearched) {
+      console.log("SEARCH DEBUG", {
+        searchType,
+        keyword,
+        results: results.map((x) => ({
+          id: x.id,
+          name: x.name,
+          plate: x.plate,
+          status: x.status,
+        })),
+      });
+    }
+  }, [hasSearched, keyword, results, searchType]);
 
   const groupedResults = useMemo(() => {
     const map = new Map<string, RecordItem[]>();
@@ -426,7 +491,7 @@ export default function App() {
           .sort((a, b) => b.localeCompare(a))[0];
 
         return {
-          plate,
+          plate: plate || "未提供",
           items: sorted,
           best: sorted[0],
           total: items.length,
@@ -545,10 +610,16 @@ export default function App() {
 
 
   async function submitReport() {
+    if (isSubmittingReport) return;
+    setIsSubmittingReport(true);
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
     const plate = normalizePlate(reportPlate);
 
-    if (!reportName.trim() || !plate || !reportType.trim()) {
-      Alert.alert("資料不足", "請至少輸入姓名、車號、事件類型。");
+    if (!reportName.trim() || !reportType.trim()) {
+      setIsSubmittingReport(false);
+      Alert.alert("資料不足", "請至少輸入姓名、事件類型。");
       return;
     }
 
@@ -563,9 +634,11 @@ export default function App() {
       if (reportPlateImage) {
         plateImageUrl = await uploadImageAsync(reportPlateImage, "plateImages");
       }
-    } catch (e) {
+    } catch (e: any) {
       console.log("照片上傳失敗", e);
-      Alert.alert("照片上傳失敗", "照片未成功上傳，但文字資料仍會建立。");
+      setIsSubmittingReport(false);
+      Alert.alert("照片上傳失敗", String(e?.message || e));
+      return;
     }
 
     const score = calcRisk(reportType, reportNote, severity);
@@ -573,7 +646,7 @@ export default function App() {
     const newRecord: RecordItem = {
       id: `SC-${Date.now().toString().slice(-6)}`,
       name: reportName.trim(),
-      plate,
+      plate: plate || "未提供",
       type: reportType.trim(),
       area: reportArea.trim() || "未知地區",
       date: new Date().toLocaleDateString("zh-TW"),
@@ -588,14 +661,44 @@ export default function App() {
       reviewNote: "",
       profileImageUrl: profileImageUrl || "",
       plateImageUrl: plateImageUrl || "",
+      ip: "pending",
+      device: Device.modelName || "unknown",
+      os: `${Device.osName || ""} ${Device.osVersion || ""}`.trim() || "unknown",
       uid: firebase.auth().currentUser?.uid || "",
       email: firebase.auth().currentUser?.email || "",
     };
 
     try {
-      await addCase(newRecord);
-    } catch (e) {
-      console.log("Firebase 寫入失敗，僅儲存在本機", e);
+      console.log("開始建立案件");
+      console.log("NEW RECORD", newRecord);
+
+      const savedRef: any = await addCase(newRecord);
+
+      Promise.resolve().then(async () => {
+        try {
+          const res = await fetch("https://api.ipify.org?format=json");
+          const json = await res.json();
+
+          if (savedRef?.id) {
+            await db.collection("cases").doc(savedRef.id).set(
+              { ip: json.ip || "unknown" },
+              { merge: true }
+            );
+          }
+
+          console.log("背景 IP 更新完成", json.ip);
+        } catch (e) {
+          console.log("背景 IP 更新失敗", e);
+        }
+      });
+
+      console.log("案件建立成功");
+      Alert.alert("上傳完畢", "案件已成功建立，等待管理員審核。");
+    } catch (e: any) {
+      console.log("Firebase 寫入失敗", e);
+      setIsSubmittingReport(false);
+      Alert.alert("建立失敗", String(e?.message || e));
+      return;
     }
 
     const next = [newRecord, ...records];
@@ -610,13 +713,14 @@ export default function App() {
     setSeverity("MEDIUM");
     setReportProfileImage("");
     setReportPlateImage("");
+    setIsSubmittingReport(false);
 
     setKeyword(newRecord.plate);
     setSearchType("plate");
     setHasSearched(true);
     setTab("search");
 
-    Alert.alert("資料已建立", "資料已加入本機查詢庫，狀態為待查證。");
+    // 上方已顯示「上傳完畢」
   }
 
 
@@ -860,7 +964,10 @@ export default function App() {
             <View style={styles.timelineBox}>
               <Text style={styles.sectionTitle}>歷史紀錄</Text>
 
-              {plateGroup
+              {(searchType === "name"
+                ? records.filter((x) => normalizeText(x.name) === normalizeText(selected.name))
+                : plateGroup
+              )
                 .sort((a, b) => String(b.date).localeCompare(String(a.date)))
                 .slice(0, 10)
                 .map((item) => (
@@ -874,6 +981,24 @@ export default function App() {
               <View style={styles.aiBox}>
                 <Text style={styles.sectionTitle}>AI 風險分析</Text>
                 <Text style={styles.aiText}>{selected.aiSummary}</Text>
+
+                {selected?.courtUrl ? (
+                  <Text
+                    style={styles.linkText}
+                    onPress={() => Linking.openURL(selected.courtUrl!)}
+                  >
+                    📄 法院判決書
+                  </Text>
+                ) : null}
+
+                {selected?.newsUrl ? (
+                  <Text
+                    style={styles.linkText}
+                    onPress={() => Linking.openURL(selected.newsUrl!)}
+                  >
+                    📰 新聞報導
+                  </Text>
+                ) : null}
               </View>
             ) : (
               <View style={styles.aiBox}>
@@ -952,6 +1077,12 @@ export default function App() {
 
   return (
     <SafeAreaView style={styles.safe}>
+      {isSubmittingReport ? (
+        <View style={styles.uploadOverlay}>
+          <Text style={styles.uploadOverlayText}>正在上傳...</Text>
+        </View>
+      ) : null}
+
       <ScrollView contentContainerStyle={styles.container}>
         <View style={styles.header}>
           <Text style={styles.system}>SAFE CHECK OS</Text>
@@ -1227,8 +1358,14 @@ export default function App() {
             <Text style={styles.label}>事件描述</Text>
             <TextInput style={[styles.input, styles.textarea]} value={reportNote} onChangeText={setReportNote} placeholder="描述事件經過" placeholderTextColor="#3F6F4E" multiline />
 
-            <Pressable style={styles.button} onPress={submitReport}>
-              <Text style={styles.buttonText}>建立紀錄</Text>
+            <Pressable
+              style={[styles.button, isSubmittingReport ? { opacity: 0.6 } : null]}
+              onPress={submitReport}
+              disabled={isSubmittingReport}
+            >
+              <Text style={styles.buttonText}>
+                {isSubmittingReport ? "正在上傳..." : "建立紀錄"}
+              </Text>
             </Pressable>
           </View>
         )}
@@ -1380,4 +1517,31 @@ const styles = StyleSheet.create({
   premiumButton: { marginTop: 12, backgroundColor: "#19FF7A", borderRadius: 12, paddingVertical: 12, alignItems: "center" },
   premiumButtonText: { color: "#001F0D", fontWeight: "900" },
   footer: { color: "#3F6F4E", textAlign: "center", marginTop: 22, fontWeight: "900", letterSpacing: 1 },
+
+  uploadOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 9999,
+    backgroundColor: "rgba(0,0,0,0.75)",
+    paddingVertical: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+
+  linkText: {
+    color: "#60a5fa",
+    fontSize: 15,
+    fontWeight: "700",
+    marginTop: 8,
+    textDecorationLine: "underline",
+  },
+
+  uploadOverlayText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "900",
+  },
 });
